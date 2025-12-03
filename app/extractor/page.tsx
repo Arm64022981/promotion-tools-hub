@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { FileText, Download, Trash2, Settings, BarChart3, AlertTriangle, CheckCircle } from 'lucide-react';
+import Swal from 'sweetalert2'; // <--- Swal ถูก Import แล้ว
 
 const OUTPUT_COLUMNS = [
     '⚠️ ตรวจสอบ?', 'Change log', 'Legacy ID', 'Offering Name', 'Notification Name (Eng)',
@@ -32,7 +33,7 @@ const cycleTypeRegex = new RegExp(
 const KNOWN_RETRY_TIMES = new Set(['3', '7', '99', '999', '9999']);
 const KNOWN_CYCLE_SHIFTS = new Set(['Shift', 'Not Shift']);
 
-// --- EXTRACTION LOGIC ---
+// --- EXTRACTION LOGIC (UNCHANGED) ---
 
 function extractKeyValueData(textChunk: string): ExtractedData {
     const details: ExtractedData = {};
@@ -53,7 +54,7 @@ function extractKeyValueData(textChunk: string): ExtractedData {
 
     details['Legacy ID'] = findPattern(/รหัสโปรโมชั่น\s*:\s*(\d{8})/m, textChunk);
     details['Offering Name'] = findPattern(/ชื่อโปรใน OCS\s*:\s*([^\r\n]*)/m, textChunk);
-    
+
     let fee = findPattern(/ค่าบริการ \(บาท\/ไม่รวม VAT\)\s*:\s*([\d.]+)/m, textChunk);
     if (parseFloat(fee) > 0) {
         details['Rental Fee without tax'] = fee;
@@ -64,12 +65,12 @@ function extractKeyValueData(textChunk: string): ExtractedData {
         const match = periodText.match(cycleTypeRegex);
         if (match) details['Cycle Type'] = match[0];
     }
-    
+
     let lengthText = findPattern(/Cycle Length\s*:\s*([^\r\n]*)/m, textChunk);
     if (/^(\d+\s*รอบบิล|\d+\s*times?|Renew)$/i.test(lengthText)) {
         details['Cycle Length'] = lengthText.replace('รอบบิล', 'times');
     }
-    
+
     details['Prorate RC & FU'] = findPattern(/เกณฑ์การคิดค่าบริการ\s*:\s*(Prorate|Not Prorate)/m, textChunk);
     details['RC failed need Suspend ?'] = findPattern(/RC failed need Suspend \?\s*:\s*(Suspend)/m, textChunk);
     details['Retry RC times'] = findPattern(/Retry RC times\s*:\s*(3|7|99|999|9999)\b/m, textChunk);
@@ -77,16 +78,16 @@ function extractKeyValueData(textChunk: string): ExtractedData {
 
     details['Sale Start Date'] = findPattern(/วันที่เริ่มจำหน่าย \(Sale Start Date\)\s*:\s*(\d{1,2}[-]\d{1,2}[-]\d{4}|\d{1,2}\s*[ก-๙]+\s*\d{2})/m, textChunk) || findPattern(/(\d{1,2}\s*[ก-๙]+\s*\d{2})/m, textChunk.split('Channel name')[1] || '');
     details['Deploy Date'] = findPattern(/วันเริ่มต้นใช้แพ็กเกจ \(Effective Date\)\s*:\s*(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})/m, textChunk);
-    
+
     const statusText = findPattern(/สถานะโปรโมชั่น\s*:\s*([^\r\n]*)/m, textChunk);
-    if(statusText) details['Deploy State'] = statusText;
+    if (statusText) details['Deploy State'] = statusText;
 
     const speedMatch = findPattern(/โปรโมชั่น.*?เน็ต.*?\s([\d.]+Mbps)/m, textChunk);
     if (speedMatch) {
         details['Speed'] = `เน็ตไม่จำกัด ${speedMatch}`;
         details['SpeedTemplate'] = speedMatch;
     }
-    
+
     return details;
 }
 
@@ -100,7 +101,7 @@ function extractTabSeparatedData(textChunk: string): ExtractedData {
         details['Offering Name'] = fields.find(f => f.startsWith('SO_')) || '';
         details['Notification Name (Eng)'] = fields[3];
         details['Notification Name (Thai)'] = fields[4];
-    } catch (e) {}
+    } catch (e) { }
 
     fields.forEach((field) => {
         if (/^(\d+\s*times?|Renew)$/i.test(field) && !details['Cycle Length']) {
@@ -187,9 +188,9 @@ function masterExtractor(textChunk: string): ExtractedData {
         details['Free unit type OCS'] = ocsString;
         details['Free unit type Legacy'] = ocsString;
     }
-    
+
     details['Remark'] = 'Pre-collection';
-    
+
     if (details['Deploy State'] && /in-progress|deploy/i.test(details['Deploy State'])) {
         details['Deploy State'] = 'In-progress';
     }
@@ -204,26 +205,32 @@ function masterExtractor(textChunk: string): ExtractedData {
     const criticalFields = ['Legacy ID', 'Offering Name'] as const;
     const missingCriticalFields = criticalFields.filter(field => !details[field as keyof ExtractedData] || details[field as keyof ExtractedData]!.trim() === '');
     details['⚠️ ตรวจสอบ?'] = missingCriticalFields.length > 0 ? 'ควรตรวจสอบ' : '';
-    
+
     return details;
 }
 
-// --- COMPONENT ---
+// --- COMPONENT (MODIFIED HANDLERS) ---
 
 export default function PromotionExtractor() {
     const [rawInput, setRawInput] = useState<string>('');
     const [extractedDataList, setExtractedDataList] = useState<ExtractedData[]>([]);
     const [status, setStatus] = useState<string>('Ready to process promotion data');
-    
+
     const reviewCount = useMemo(() => extractedDataList.filter(d => d['⚠️ ตรวจสอบ?'] === 'ควรตรวจสอบ').length, [extractedDataList]);
     const isProcessed = extractedDataList.length > 0;
 
     const handleProcess = useCallback(() => {
         setStatus('Processing data...');
         const rawText = rawInput.trim();
-        
+
         if (!rawText) {
-            alert('กรุณาวางข้อมูลดิบก่อน');
+            // ใช้ Swal แทน alert()
+            Swal.fire({
+                icon: 'warning',
+                title: 'ข้อผิดพลาด',
+                text: 'กรุณาวางข้อมูลดิบก่อน',
+                confirmButtonText: 'ตกลง',
+            });
             setStatus('Ready to process promotion data');
             return;
         }
@@ -231,23 +238,46 @@ export default function PromotionExtractor() {
         const promoChunks = rawText.split(/(?=\d{8}:\s*New|โปรโมชั่น\s\d+\s*:)/).map(c => c.trim()).filter(c => c);
         const newExtractedData = promoChunks.map(chunk => masterExtractor(chunk));
         setExtractedDataList(newExtractedData);
-        
+
         const currentReviewCount = newExtractedData.filter(d => d['⚠️ ตรวจสอบ?']).length;
 
         let statusMessage = `✓ Processing complete: ${newExtractedData.length} records found`;
         if (currentReviewCount > 0) {
             statusMessage += ` (${currentReviewCount} records require review)`;
-            alert(`พบ ${currentReviewCount} รายการที่ข้อมูลสำคัญอาจขาดหาย`);
+            // ใช้ Swal แทน alert()
+            Swal.fire({
+                icon: 'warning',
+                title: 'การตรวจสอบข้อมูล',
+                text: `พบ ${currentReviewCount} รายการที่ข้อมูลสำคัญอาจขาดหาย กรุณาตรวจสอบในตาราง`,
+                confirmButtonText: 'ตกลง',
+            });
         }
         setStatus(statusMessage);
     }, [rawInput]);
 
     const handleClear = useCallback(() => {
-        if (window.confirm('Clear all data?')) {
-            setRawInput('');
-            setExtractedDataList([]);
-            setStatus('Ready to process promotion data');
-        }
+        // ใช้ Swal.fire() พร้อมยืนยันแทน window.confirm()
+        Swal.fire({
+            title: 'ยืนยันการล้างข้อมูล?',
+            text: "ข้อมูลดิบและข้อมูลที่แยกออกมาจะถูกล้างทั้งหมด",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'ใช่, ล้างข้อมูล',
+            cancelButtonText: 'ยกเลิก'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                setRawInput('');
+                setExtractedDataList([]);
+                setStatus('Ready to process promotion data');
+                Swal.fire(
+                    'ล้างข้อมูลแล้ว!',
+                    'ระบบพร้อมสำหรับข้อมูลใหม่',
+                    'success'
+                );
+            }
+        })
     }, []);
 
     const handleDownload = useCallback(() => {
@@ -258,7 +288,7 @@ export default function PromotionExtractor() {
 
         extractedDataList.forEach(item => {
             const row = OUTPUT_COLUMNS.map(col => {
-                let cellData = item[col as keyof ExtractedData] || ''; 
+                let cellData = item[col as keyof ExtractedData] || '';
                 return `"${String(cellData).replace(/"/g, '""')}"`;
             });
             csvContent += row.join(',') + '\r\n';
@@ -272,6 +302,14 @@ export default function PromotionExtractor() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+
+        Swal.fire({
+            icon: 'success',
+            title: 'ดาวน์โหลดสำเร็จ!',
+            text: `ส่งออกข้อมูล ${extractedDataList.length} รายการไปยังไฟล์ CSV แล้ว`,
+            timer: 3000,
+            showConfirmButton: false
+        });
     }, [extractedDataList]);
 
     return (
@@ -295,7 +333,7 @@ export default function PromotionExtractor() {
 
             <main className="max-w-7xl mx-auto">
                 <div className="bg-white rounded-b-lg shadow-2xl border-4 border-slate-300">
-                    
+
                     {/* Input Section */}
                     <div className="p-8 bg-gradient-to-b from-slate-50 to-white border-b-2 border-slate-200">
                         <label htmlFor="raw-input" className="flex items-center gap-2 text-lg font-serif font-bold text-slate-800 mb-4">
@@ -315,36 +353,35 @@ export default function PromotionExtractor() {
                     {/* Control Panel */}
                     <div className="p-6 bg-slate-100 border-b-2 border-slate-200">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <button 
+                            <button
                                 onClick={handleProcess}
                                 className="flex items-center justify-center gap-2 p-4 font-serif font-bold text-white rounded-lg shadow-lg 
-                                           bg-gradient-to-r from-blue-600 to-blue-700 border-2 border-blue-800
-                                           hover:from-blue-700 hover:to-blue-800
-                                           transition-all duration-200 transform hover:scale-[1.02]"
+                                        bg-gradient-to-r from-blue-600 to-blue-700 border-2 border-blue-800
+                                        hover:from-blue-700 hover:to-blue-800
+                                        transition-all duration-200 transform hover:scale-[1.02]"
                             >
                                 <Settings className="w-5 h-5" />
                                 <span>Process Data</span>
                             </button>
-                            
-                            <button 
+
+                            <button
                                 onClick={handleDownload}
                                 disabled={!isProcessed}
-                                className={`flex items-center justify-center gap-2 p-4 font-serif font-bold rounded-lg shadow-lg transition-all duration-200 ${
-                                    isProcessed 
-                                        ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white border-2 border-emerald-800 hover:from-emerald-700 hover:to-emerald-800 transform hover:scale-[1.02]' 
+                                className={`flex items-center justify-center gap-2 p-4 font-serif font-bold rounded-lg shadow-lg transition-all duration-200 ${isProcessed
+                                        ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white border-2 border-emerald-800 hover:from-emerald-700 hover:to-emerald-800 transform hover:scale-[1.02]'
                                         : 'bg-slate-300 text-slate-500 border-2 border-slate-400 cursor-not-allowed'
-                                }`}
+                                    }`}
                             >
                                 <Download className="w-5 h-5" />
                                 <span>Download CSV</span>
                             </button>
-                            
-                            <button 
+
+                            <button
                                 onClick={handleClear}
                                 className="flex items-center justify-center gap-2 p-4 font-serif font-bold text-white rounded-lg shadow-lg 
-                                           bg-gradient-to-r from-red-600 to-red-700 border-2 border-red-800
-                                           hover:from-red-700 hover:to-red-800
-                                           transition-all duration-200 transform hover:scale-[1.02]"
+                                        bg-gradient-to-r from-red-600 to-red-700 border-2 border-red-800
+                                        hover:from-red-700 hover:to-red-800
+                                        transition-all duration-200 transform hover:scale-[1.02]"
                             >
                                 <Trash2 className="w-5 h-5" />
                                 <span>Clear Data</span>
@@ -354,11 +391,10 @@ export default function PromotionExtractor() {
 
                     {/* Status Bar */}
                     <div className="p-5 bg-white border-b-2 border-slate-200">
-                        <div className={`p-4 rounded border-l-4 font-serif ${
-                            status.startsWith('✓') ? 'bg-emerald-50 border-emerald-600 text-emerald-800' : 
-                            status.startsWith('Processing') ? 'bg-blue-50 border-blue-600 text-blue-800' : 
-                            'bg-slate-50 border-slate-600 text-slate-800'
-                        }`}>
+                        <div className={`p-4 rounded border-l-4 font-serif ${status.startsWith('✓') ? 'bg-emerald-50 border-emerald-600 text-emerald-800' :
+                                status.startsWith('Processing') ? 'bg-blue-50 border-blue-600 text-blue-800' :
+                                    'bg-slate-50 border-slate-600 text-slate-800'
+                            }`}>
                             <div className="flex items-center gap-2">
                                 {status.startsWith('✓') ? <CheckCircle className="w-5 h-5" /> : <BarChart3 className="w-5 h-5" />}
                                 <p className="font-medium">{status}</p>
@@ -387,8 +423,8 @@ export default function PromotionExtractor() {
                                         <thead className="bg-slate-700 sticky top-0">
                                             <tr>
                                                 {OUTPUT_COLUMNS.map((col) => (
-                                                    <th 
-                                                        key={col} 
+                                                    <th
+                                                        key={col}
                                                         className="px-4 py-3 text-left text-sm font-serif font-bold text-white border-r border-slate-600 whitespace-nowrap"
                                                     >
                                                         {col === '⚠️ ตรวจสอบ?' && <AlertTriangle className="inline w-4 h-4 mr-1" />}
@@ -399,17 +435,16 @@ export default function PromotionExtractor() {
                                         </thead>
                                         <tbody className="bg-white">
                                             {extractedDataList.map((item, index) => (
-                                                <tr 
+                                                <tr
                                                     key={index}
-                                                    className={`border-b border-slate-200 transition-colors ${
-                                                        item['⚠️ ตรวจสอบ?'] 
-                                                            ? 'bg-amber-50 hover:bg-amber-100' 
+                                                    className={`border-b border-slate-200 transition-colors ${item['⚠️ ตรวจสอบ?']
+                                                            ? 'bg-amber-50 hover:bg-amber-100'
                                                             : 'hover:bg-slate-50'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {OUTPUT_COLUMNS.map((col) => (
-                                                        <td 
-                                                            key={col} 
+                                                        <td
+                                                            key={col}
                                                             className="px-4 py-3 text-sm text-slate-700 border-r border-slate-200 whitespace-nowrap font-mono"
                                                         >
                                                             {item[col as keyof ExtractedData]}
