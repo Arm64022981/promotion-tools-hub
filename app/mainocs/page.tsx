@@ -1,5 +1,17 @@
-import { Calculator, FileText, GitCompare, ArrowRight, Award, Shield, Clock } from 'lucide-react';
+import { Calculator, FileText, GitCompare, ArrowRight, Award } from 'lucide-react';
+import React from 'react';
 
+// --- TYPE DEFINITIONS ---
+type ToolCardProps = {
+  title: string;
+  titleThai: string;
+  description: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  color: 'blue' | 'emerald' | 'amber';
+};
+
+// --- DATA FOR TOOL CARDS ---
 const tools: ToolCardProps[] = [
   {
     title: 'Promotion Data Extractor',
@@ -27,28 +39,20 @@ const tools: ToolCardProps[] = [
   },
 ];
 
-type ToolCardProps = {
-  title: string;
-  titleThai: string;
-  description: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  color: 'blue' | 'emerald' | 'amber';
-};
-
+// --- COMPONENT: ToolCard ---
 const ToolCard = ({ title, titleThai, description, href, icon: Icon, color }: ToolCardProps) => {
   const colors = {
     blue: 'border-blue-300 hover:border-blue-600 hover:shadow-blue-200',
     emerald: 'border-emerald-300 hover:border-emerald-600 hover:shadow-emerald-200',
     amber: 'border-amber-300 hover:border-amber-600 hover:shadow-amber-200'
   };
-  
+
   const iconColors = {
     blue: 'bg-blue-600',
     emerald: 'bg-emerald-600',
     amber: 'bg-amber-600'
   };
-  
+
   return (
     <a
       href={href}
@@ -60,7 +64,7 @@ const ToolCard = ({ title, titleThai, description, href, icon: Icon, color }: To
           <Icon className="w-8 h-8 text-white" strokeWidth={2.5} />
         </div>
       </div>
-      
+
       {/* Content */}
       <h3 className="text-2xl font-serif font-bold text-slate-800 mb-2">
         {title}
@@ -71,7 +75,7 @@ const ToolCard = ({ title, titleThai, description, href, icon: Icon, color }: To
       <p className="text-slate-700 leading-relaxed mb-6 font-serif">
         {description}
       </p>
-      
+
       {/* CTA */}
       <div className="flex items-center gap-2 text-slate-800 font-serif font-semibold border-t-2 border-slate-200 pt-4 group-hover:text-slate-900 transition-colors">
         <span>Enter Tool</span>
@@ -81,10 +85,12 @@ const ToolCard = ({ title, titleThai, description, href, icon: Icon, color }: To
   );
 };
 
+
+// --- MAIN PAGE COMPONENT ---
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 to-stone-200">
-      
+
       {/* Header Banner */}
       <header className="bg-gradient-to-r from-slate-800 to-slate-700 border-b-4 border-amber-600 shadow-2xl">
         <div className="max-w-7xl mx-auto px-4 py-16 text-center">
@@ -93,18 +99,18 @@ export default function HomePage() {
             <Award className="w-5 h-5 text-white" />
             <span className="text-sm font-serif font-bold text-white uppercase tracking-wider">Professional Suite</span>
           </div>
-          
+
           {/* Main Title */}
           <h1 className="text-5xl md:text-6xl font-serif font-bold text-white mb-4 tracking-wide">
             Promotion Tools Hub @ Billone
           </h1>
-          
+
           {/* Subtitle */}
           <p className="text-xl md:text-2xl text-slate-300 font-serif italic max-w-3xl mx-auto leading-relaxed">
             ศูนย์รวมเครื่องมือสำหรับการจัดการข้อมูลโปรโมชัน
             <br />
           </p>
-          
+
           {/* Decorative Line */}
           <div className="mt-8 flex items-center justify-center gap-4">
             <div className="h-1 w-24 bg-amber-500 rounded"></div>
@@ -113,10 +119,10 @@ export default function HomePage() {
           </div>
         </div>
       </header>
-      
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-16">
-        
+
         {/* Tools Section */}
         <section className="mb-20">
           <div className="text-center mb-12">
@@ -129,7 +135,7 @@ export default function HomePage() {
               เลือกเครื่องมือที่คุณต้องการใช้งาน
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {tools.map((tool) => (
               <ToolCard key={tool.title} {...tool} />
@@ -137,83 +143,103 @@ export default function HomePage() {
           </div>
         </section>
         
-        {/* Features Section */}
-        <section className="bg-white rounded-lg shadow-2xl border-4 border-slate-300 p-12 mb-16">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-serif font-bold text-slate-800 mb-4">
-              Why Choose Our Platform?
-            </h2>
-            <div className="w-24 h-1 bg-amber-600 mx-auto rounded"></div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: Clock,
-                title: 'Time Efficient',
-                titleThai: 'ประหยัดเวลา',
-                description: 'ประมวลผลข้อมูลได้รวดเร็ว ลดเวลาการทำงานมากกว่า 80%'
-              },
-              {
-                icon: Shield,
-                title: 'Secure & Private',
-                titleThai: 'ปลอดภัย',
-                description: 'ไม่มีการเก็บข้อมูลส่วนตัว ประมวลผลบนเครื่องของคุณ'
-              },
-              {
-                icon: Award,
-                title: 'Professional Grade',
-                titleThai: 'มาตรฐานสูง',
-                description: 'ออกแบบมาเพื่อการใช้งานระดับองค์กรและมืออาชีพ'
-              }
-            ].map((feature, idx) => {
-              const Icon = feature.icon;
-              return (
-                <div key={idx} className="text-center border-2 border-slate-200 rounded-lg p-6 hover:border-slate-400 hover:shadow-lg transition-all duration-300">
-                  <div className="inline-flex p-4 rounded-lg bg-slate-700 shadow-md mb-4">
-                    <Icon className="w-8 h-8 text-amber-500" strokeWidth={2.5} />
-                  </div>
-                  <h3 className="text-xl font-serif font-bold text-slate-800 mb-1">{feature.title}</h3>
-                  <p className="text-sm font-serif font-medium text-slate-600 mb-3 italic">{feature.titleThai}</p>
-                  <p className="text-slate-700 font-serif leading-relaxed">{feature.description}</p>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-        
-        {/* Stats Section */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-          {[
-            { label: 'Tools Available', value: '3', unit: '+' },
-            { label: 'Time Saved', value: '80', unit: '%' },
-            { label: 'Data Accuracy', value: '99', unit: '%' }
-          ].map((stat, idx) => (
-            <div key={idx} className="bg-white border-3 border-slate-300 rounded-lg p-8 text-center shadow-lg">
-              <div className="text-5xl font-serif font-black text-slate-800 mb-2">
-                {stat.value}<span className="text-amber-600">{stat.unit}</span>
+      </main>
+
+      {/* Footer */}
+      <footer className="relative bg-gradient-to-r from-slate-800 to-slate-700 border-t-4 border-amber-600 overflow-hidden">
+        {/* Animated Background Effect */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-10 left-10 w-40 h-40 bg-blue-500 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-10 right-10 w-40 h-40 bg-purple-500 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+          <div className="absolute top-1/2 left-1/2 w-40 h-40 bg-amber-500 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+        </div>
+
+        <div className="relative max-w-7xl mx-auto px-4 py-16">
+          {/* Giant Animated Tech Icons */}
+          <div className="flex items-center justify-center gap-8 mb-12">
+            <div className="group cursor-pointer">
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 rounded-2xl shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-125 hover:rotate-12 animate-bounce" style={{ animationDuration: '3s' }}>
+                <Calculator className="w-14 h-14 text-white drop-shadow-lg" strokeWidth={2.5} />
               </div>
-              <div className="text-sm font-serif font-semibold text-slate-600 uppercase tracking-wider">
-                {stat.label}
+              <div className="text-center mt-3">
+                <p className="text-xs font-serif text-blue-300 font-bold">CALC</p>
               </div>
             </div>
-          ))}
-        </section>
-      </main>
-      
-      {/* Footer */}
-      <footer className="bg-gradient-to-r from-slate-800 to-slate-700 border-t-4 border-amber-600">
-        <div className="max-w-7xl mx-auto px-4 py-8 text-center">
-          <div className="mb-4">
-            <div className="inline-block px-6 py-2 bg-slate-900 rounded border-2 border-amber-600">
-              <p className="text-sm font-serif text-slate-300">
+
+            <div className="group cursor-pointer">
+              <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 via-emerald-500 to-emerald-600 rounded-2xl shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-125 hover:-rotate-12 animate-bounce" style={{ animationDuration: '3.5s', animationDelay: '0.2s' }}>
+                <FileText className="w-14 h-14 text-white drop-shadow-lg" strokeWidth={2.5} />
+              </div>
+              <div className="text-center mt-3">
+                <p className="text-xs font-serif text-emerald-300 font-bold">DATA</p>
+              </div>
+            </div>
+
+            <div className="group cursor-pointer">
+              <div className="w-32 h-32 bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 rounded-3xl shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-125 hover:rotate-180 animate-bounce border-4 border-amber-300" style={{ animationDuration: '3s', animationDelay: '0.4s' }}>
+                <Award className="w-20 h-20 text-white drop-shadow-2xl" strokeWidth={3} />
+              </div>
+              <div className="text-center mt-3">
+                <p className="text-sm font-serif text-amber-300 font-bold">PRO SUITE</p>
+              </div>
+            </div>
+
+            <div className="group cursor-pointer">
+              <div className="w-24 h-24 bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600 rounded-2xl shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-125 hover:rotate-12 animate-bounce" style={{ animationDuration: '3.2s', animationDelay: '0.6s' }}>
+                <GitCompare className="w-14 h-14 text-white drop-shadow-lg" strokeWidth={2.5} />
+              </div>
+              <div className="text-center mt-3">
+                <p className="text-xs font-serif text-purple-300 font-bold">COMPARE</p>
+              </div>
+            </div>
+
+            <div className="group cursor-pointer">
+              <div className="w-24 h-24 bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600 rounded-2xl shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-125 hover:-rotate-12 animate-bounce" style={{ animationDuration: '3.8s', animationDelay: '0.8s' }}>
+                <ArrowRight className="w-14 h-14 text-white drop-shadow-lg" strokeWidth={2.5} />
+              </div>
+              <div className="text-center mt-3">
+                <p className="text-xs font-serif text-pink-300 font-bold">NEXT</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Animated Sparkle Dots */}
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <div className="w-3 h-3 bg-amber-400 rounded-full animate-ping"></div>
+            <div className="w-4 h-4 bg-blue-400 rounded-full animate-ping" style={{ animationDelay: '0.3s' }}></div>
+            <div className="w-5 h-5 bg-emerald-400 rounded-full animate-ping" style={{ animationDelay: '0.6s' }}></div>
+            <div className="w-6 h-6 bg-purple-400 rounded-full animate-ping" style={{ animationDelay: '0.9s' }}></div>
+            <div className="w-5 h-5 bg-pink-400 rounded-full animate-ping" style={{ animationDelay: '1.2s' }}></div>
+            <div className="w-4 h-4 bg-amber-400 rounded-full animate-ping" style={{ animationDelay: '1.5s' }}></div>
+            <div className="w-3 h-3 bg-blue-400 rounded-full animate-ping" style={{ animationDelay: '1.8s' }}></div>
+          </div>
+
+          {/* Copyright Badge with Glow Effect */}
+          <div className="text-center mb-8">
+            <div className="inline-block px-10 py-4 bg-slate-900 rounded-xl border-4 border-amber-500 shadow-2xl transform hover:scale-105 transition-transform duration-300 relative">
+              <div className="absolute inset-0 bg-amber-500 opacity-20 rounded-xl blur-xl animate-pulse"></div>
+              <p className="relative text-base font-serif text-slate-200 font-bold">
                 © {new Date().getFullYear()} Promotion Tools Hub
+              </p>
+              <p className="relative text-sm font-serif text-amber-400 font-bold mt-1">
+                ARM@MOS BILLONE
+              </p>
+              <p className="relative text-xs font-serif text-slate-400 italic mt-2">
+                สงวนสิทธิ์ให้ทีม
               </p>
             </div>
           </div>
-          <p className="text-xs font-serif text-slate-400 italic">
-            Developed with Next.js & Tailwind CSS
-          </p>
+
+          {/* Animated Bottom Wave Line */}
+          <div className="flex items-center justify-center gap-2">
+            <div className="h-1 w-24 bg-gradient-to-r from-transparent via-amber-400 to-transparent rounded animate-pulse"></div>
+            <div className="w-3 h-3 bg-amber-400 rounded-full animate-bounce"></div>
+            <div className="h-1.5 w-32 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 rounded animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+            <div className="w-3 h-3 bg-emerald-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
+            <div className="h-1.5 w-32 bg-gradient-to-r from-emerald-400 via-blue-400 to-purple-400 rounded animate-pulse" style={{ animationDelay: '1s' }}></div>
+            <div className="w-3 h-3 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.6s' }}></div>
+            <div className="h-1 w-24 bg-gradient-to-r from-transparent via-purple-400 to-transparent rounded animate-pulse" style={{ animationDelay: '1.5s' }}></div>
+          </div>
         </div>
       </footer>
     </div>
