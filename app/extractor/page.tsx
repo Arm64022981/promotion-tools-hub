@@ -322,7 +322,7 @@ export default function PromotionExtractor() {
                             <FileText className="w-8 h-8 text-white" strokeWidth={2.5} />
                         </div>
                         <h1 className="text-3xl md:text-4xl font-serif font-bold text-white tracking-wide">
-                            Promotion Data Extractor Arm parin And Mosy
+                            Promotion Data Extractor Arm Parin Khamthep And Mosy Thanakrit Chimplipak
                         </h1>
                     </div>
                     <p className="text-slate-300 text-lg font-serif italic">
