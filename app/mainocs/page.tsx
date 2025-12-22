@@ -1,4 +1,4 @@
-import { Calculator, FileText, GitCompare, ArrowRight, Award } from 'lucide-react';
+import { Calculator, FileText, GitCompare, ArrowRight, Award, Shuffle } from 'lucide-react';
 import React from 'react';
 
 // --- TYPE DEFINITIONS ---
@@ -8,7 +8,7 @@ type ToolCardProps = {
   description: string;
   href: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  color: 'blue' | 'emerald' | 'amber';
+  color: 'blue' | 'emerald' | 'amber' | 'purple'; // เพิ่ม purple
 };
 
 // --- DATA FOR TOOL CARDS ---
@@ -37,6 +37,14 @@ const tools: ToolCardProps[] = [
     icon: GitCompare,
     color: 'amber'
   },
+  {
+    title: 'Data Mapper',
+    titleThai: 'เครื่องมือจับคู่ข้อมูล (Mapping)',
+    description: 'อัปโหลดไฟล์ต้นทางและไฟล์อ้างอิง เพื่อดึงข้อมูลจากไฟล์หนึ่งไปเติมลงในอีกไฟล์หนึ่งโดยอัตโนมัติผ่าน Key ที่กำหนด (VLOOKUP Automation)',
+    href: '/mappingdata',
+    icon: Shuffle,
+    color: 'purple'
+  },
 ];
 
 // --- COMPONENT: ToolCard ---
@@ -44,13 +52,15 @@ const ToolCard = ({ title, titleThai, description, href, icon: Icon, color }: To
   const colors = {
     blue: 'border-blue-300 hover:border-blue-600 hover:shadow-blue-200',
     emerald: 'border-emerald-300 hover:border-emerald-600 hover:shadow-emerald-200',
-    amber: 'border-amber-300 hover:border-amber-600 hover:shadow-amber-200'
+    amber: 'border-amber-300 hover:border-amber-600 hover:shadow-amber-200',
+    purple: 'border-purple-300 hover:border-purple-600 hover:shadow-purple-200'
   };
 
   const iconColors = {
     blue: 'bg-blue-600',
     emerald: 'bg-emerald-600',
-    amber: 'bg-amber-600'
+    amber: 'bg-amber-600',
+    purple: 'bg-purple-600'
   };
 
   return (
@@ -72,7 +82,7 @@ const ToolCard = ({ title, titleThai, description, href, icon: Icon, color }: To
       <p className="text-sm font-serif font-medium text-slate-600 mb-4 italic">
         {titleThai}
       </p>
-      <p className="text-slate-700 leading-relaxed mb-6 font-serif">
+      <p className="text-slate-700 leading-relaxed mb-6 font-serif h-20 overflow-hidden">
         {description}
       </p>
 
@@ -136,7 +146,8 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Grid Layout - ปรับเป็น 2 คอลัมน์บน Tablet และ 2x2 หรือ 4 บน Desktop */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {tools.map((tool) => (
               <ToolCard key={tool.title} {...tool} />
             ))}
@@ -156,7 +167,7 @@ export default function HomePage() {
 
         <div className="relative max-w-7xl mx-auto px-4 py-16">
           {/* Giant Animated Tech Icons */}
-          <div className="flex items-center justify-center gap-8 mb-12">
+          <div className="flex flex-wrap items-center justify-center gap-8 mb-12">
             <div className="group cursor-pointer">
               <div className="w-24 h-24 bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 rounded-2xl shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-125 hover:rotate-12 animate-bounce" style={{ animationDuration: '3s' }}>
                 <Calculator className="w-14 h-14 text-white drop-shadow-lg" strokeWidth={2.5} />
@@ -175,6 +186,16 @@ export default function HomePage() {
               </div>
             </div>
 
+            {/* เพิ่มไอคอน Mapping ใน Footer */}
+            <div className="group cursor-pointer">
+              <div className="w-24 h-24 bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600 rounded-2xl shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-125 hover:rotate-12 animate-bounce" style={{ animationDuration: '3.3s', animationDelay: '0.3s' }}>
+                <Shuffle className="w-14 h-14 text-white drop-shadow-lg" strokeWidth={2.5} />
+              </div>
+              <div className="text-center mt-3">
+                <p className="text-xs font-serif text-purple-300 font-bold">MAPPER</p>
+              </div>
+            </div>
+
             <div className="group cursor-pointer">
               <div className="w-32 h-32 bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 rounded-3xl shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-125 hover:rotate-180 animate-bounce border-4 border-amber-300" style={{ animationDuration: '3s', animationDelay: '0.4s' }}>
                 <Award className="w-20 h-20 text-white drop-shadow-2xl" strokeWidth={3} />
@@ -185,36 +206,16 @@ export default function HomePage() {
             </div>
 
             <div className="group cursor-pointer">
-              <div className="w-24 h-24 bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600 rounded-2xl shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-125 hover:rotate-12 animate-bounce" style={{ animationDuration: '3.2s', animationDelay: '0.6s' }}>
+              <div className="w-24 h-24 bg-gradient-to-br from-slate-400 via-slate-500 to-slate-600 rounded-2xl shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-125 hover:rotate-12 animate-bounce" style={{ animationDuration: '3.2s', animationDelay: '0.6s' }}>
                 <GitCompare className="w-14 h-14 text-white drop-shadow-lg" strokeWidth={2.5} />
               </div>
               <div className="text-center mt-3">
-                <p className="text-xs font-serif text-purple-300 font-bold">COMPARE</p>
-              </div>
-            </div>
-
-            <div className="group cursor-pointer">
-              <div className="w-24 h-24 bg-gradient-to-br from-pink-400 via-pink-500 to-pink-600 rounded-2xl shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-125 hover:-rotate-12 animate-bounce" style={{ animationDuration: '3.8s', animationDelay: '0.8s' }}>
-                <ArrowRight className="w-14 h-14 text-white drop-shadow-lg" strokeWidth={2.5} />
-              </div>
-              <div className="text-center mt-3">
-                <p className="text-xs font-serif text-pink-300 font-bold">NEXT</p>
+                <p className="text-xs font-serif text-slate-300 font-bold">COMPARE</p>
               </div>
             </div>
           </div>
 
-          {/* Animated Sparkle Dots */}
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-3 h-3 bg-amber-400 rounded-full animate-ping"></div>
-            <div className="w-4 h-4 bg-blue-400 rounded-full animate-ping" style={{ animationDelay: '0.3s' }}></div>
-            <div className="w-5 h-5 bg-emerald-400 rounded-full animate-ping" style={{ animationDelay: '0.6s' }}></div>
-            <div className="w-6 h-6 bg-purple-400 rounded-full animate-ping" style={{ animationDelay: '0.9s' }}></div>
-            <div className="w-5 h-5 bg-pink-400 rounded-full animate-ping" style={{ animationDelay: '1.2s' }}></div>
-            <div className="w-4 h-4 bg-amber-400 rounded-full animate-ping" style={{ animationDelay: '1.5s' }}></div>
-            <div className="w-3 h-3 bg-blue-400 rounded-full animate-ping" style={{ animationDelay: '1.8s' }}></div>
-          </div>
-
-          {/* Copyright Badge with Glow Effect */}
+          {/* Copyright Badge */}
           <div className="text-center mb-8">
             <div className="inline-block px-10 py-4 bg-slate-900 rounded-xl border-4 border-amber-500 shadow-2xl transform hover:scale-105 transition-transform duration-300 relative">
               <div className="absolute inset-0 bg-amber-500 opacity-20 rounded-xl blur-xl animate-pulse"></div>
