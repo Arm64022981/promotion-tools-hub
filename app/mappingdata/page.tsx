@@ -190,7 +190,7 @@ export default function SuperDataMapper() {
                     onClick={() => {setFile1(null); setFile2(null); setIsSuccess(false); setSelectedColumns([]);}}
                     className="w-full bg-slate-800 py-3 rounded-2xl font-bold text-slate-400 text-sm"
                   >
-                    Reset & New Job
+                    Reset & New job
                   </button>
                 </div>
               )}
