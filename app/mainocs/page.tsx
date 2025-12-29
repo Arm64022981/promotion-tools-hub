@@ -1,6 +1,6 @@
 "use client";
 
-import { Calculator, FileText, GitCompare, ArrowRight, Award, Shuffle } from 'lucide-react';
+import { Calculator, FileText, GitCompare, ArrowRight, Award, Shuffle, Hash } from 'lucide-react';
 import React from 'react';
 
 // --- TYPE DEFINITIONS ---
@@ -21,6 +21,14 @@ const tools: ToolCardProps[] = [
     description: 'เครื่องมืออัตโนมัติสำหรับประมวลผลข้อมูลโปรโมชันดิบจากทีมการตลาด และจัดรูปแบบให้พร้อมใช้งานในรูปแบบตารางที่เป็นระเบียบ',
     href: '/extractor',
     icon: FileText,
+    color: 'blue'
+  },
+  {
+    title: 'Phone & SQL Formatter',
+    titleThai: 'เครื่องมือจัดรูปแบบเบอร์โทรศัพท์และ SQL',
+    description: 'ปรับแต่งรูปแบบเบอร์โทรศัพท์ (ใส่ 66, ใส่ 0) และแปลงเป็นรูปแบบ SQL IN Clause สำหรับการ Query ข้อมูลอย่างรวดเร็วและแม่นยำ',
+    href: '/phonenumberreformatter',
+    icon: Hash,
     color: 'blue'
   },
   {
@@ -120,7 +128,7 @@ export default function HomePage() {
 
           {/* Subtitle */}
           <p className="text-lg font-light text-gray-200">
-            ศูนย์รวมเครื่องมือสำหรับการจัดการข้อมูลโปรโมชัน
+            ศูนย์รวมเครื่องมือสำหรับการจัดการข้อมูลโปรโมชันและระบบคัดกรองข้อมูล
           </p>
 
           {/* Decorative Line */}
@@ -135,11 +143,11 @@ export default function HomePage() {
               Available Tools
             </h2>
             <p className="text-gray-600">
-              เลือกเครื่องมือที่คุณต้องการใช้งาน
+              เลือกเครื่องมือที่คุณต้องการใช้งานเพื่อเพิ่มประสิทธิภาพการจัดการข้อมูล
             </p>
           </div>
 
-          {/* Grid Layout */}
+          {/* Grid Layout - ปรับให้รองรับ 5 เมนูอย่างสวยงาม */}
           <div className="grid gap-8 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2">
             {tools.map((tool) => (
               <ToolCard key={tool.href} {...tool} />
@@ -149,39 +157,19 @@ export default function HomePage() {
 
         {/* Footer */}
         <footer className="relative overflow-hidden bg-gradient-to-r from-slate-800 via-gray-900 to-slate-800 py-12 text-center text-white">
-          {/* Animated Background Effect */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute left-0 top-0 h-96 w-96 animate-pulse rounded-full bg-white blur-3xl"></div>
-            <div className="absolute bottom-0 right-0 h-96 w-96 animate-pulse rounded-full bg-white blur-3xl" style={{ animationDelay: '1s' }}></div>
-          </div>
-
-          {/* Giant Animated Tech Icons */}
           <div className="relative mb-6 flex justify-center gap-8 text-6xl font-black tracking-widest opacity-20">
-            <span className="animate-pulse">CALC</span>
-            <span className="animate-pulse" style={{ animationDelay: '0.5s' }}>DATA</span>
+            <span className="animate-pulse">OCS</span>
+            <span className="animate-pulse" style={{ animationDelay: '0.5s' }}>SQL</span>
           </div>
 
-          {/* เพิ่มไอคอน Mapping ใน Footer */}
-          <div className="relative mb-8 flex justify-center gap-6 text-5xl font-black tracking-wider opacity-15">
-            <span className="animate-pulse" style={{ animationDelay: '1s' }}>MAPPER</span>
-            <span className="animate-pulse" style={{ animationDelay: '1.5s' }}>PRO SUITE</span>
-            <span className="animate-pulse" style={{ animationDelay: '2s' }}>COMPARE</span>
-          </div>
-
-          {/* Copyright Badge */}
           <div className="relative space-y-2 text-sm text-gray-300">
             <p className="font-semibold">
               © {new Date().getFullYear()} Promotion Tools Hub
             </p>
             <p className="text-xs">
               ARM@MOS BILLONE<br />
-              สงวนสิทธิ์ให้ทีม
+              INTERNAL ANALYTICS SYSTEMS
             </p>
-          </div>
-
-          {/* Animated Bottom Wave Line */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 overflow-hidden">
-            <div className="h-full w-full animate-pulse bg-gradient-to-r from-transparent via-white to-transparent"></div>
           </div>
         </footer>
       </div>

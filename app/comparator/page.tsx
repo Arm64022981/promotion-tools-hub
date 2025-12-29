@@ -1,10 +1,14 @@
 "use client";
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { FileText, CheckCircle, GitCompare, Trash2, Download, Upload, AlertTriangle } from 'lucide-react';
+import { 
+  FileText, CheckCircle, GitCompare, Trash2, Download, 
+  Upload, AlertTriangle, ArrowLeft, Search, Layers, ChevronRight 
+} from 'lucide-react';
 import Swal from 'sweetalert2';
+import Link from 'next/link';
 
-// --- CORE LOGIC ---
+// --- CORE LOGIC (คงเดิม) ---
 interface DiffLine {
     lineNum: number;
     file1Content: string;
@@ -17,17 +21,9 @@ interface CompareResult {
     diffLines: DiffLine[];
 }
 
-/**
- * Compares two strings line-by-line and returns the differences.
- * @param content1 Content of the first file.
- * @param content2 Content of the second file.
- * @returns Comparison result object.
- */
 function compareContents(content1: string, content2: string): CompareResult {
-    // Split content into lines, handling both \r\n (Windows) and \n (Unix/Mac) line endings.
     const lines1 = content1.split(/\r?\n/);
     const lines2 = content2.split(/\r?\n/);
-
     const len1 = lines1.length;
     const len2 = lines2.length;
     const maxLines = Math.max(len1, len2);
@@ -35,27 +31,15 @@ function compareContents(content1: string, content2: string): CompareResult {
 
     for (let i = 0; i < maxLines; i++) {
         const lineNum = i + 1;
-        // Use a placeholder for lines that only exist in one file (insertion/deletion).
         const line1 = i < len1 ? lines1[i] : "<Missing Line (Document A)>";
         const line2 = i < len2 ? lines2[i] : "<Missing Line (Document B)>";
-
         if (line1 !== line2) {
-            diffLines.push({
-                lineNum,
-                file1Content: line1,
-                file2Content: line2,
-            });
+            diffLines.push({ lineNum, file1Content: line1, file2Content: line2 });
         }
     }
-
-    return {
-        maxLines,
-        diffCount: diffLines.length,
-        diffLines,
-    };
+    return { maxLines, diffCount: diffLines.length, diffLines };
 }
 
-// --- COMPONENT ---
 interface FileState {
     file: File | null;
     content: string;
@@ -69,14 +53,15 @@ export default function ComparatorPage() {
     const [result, setResult] = useState<CompareResult | null>(null);
     const [fileNameA, setFileNameA] = useState<string>('Document A');
     const [fileNameB, setFileNameB] = useState<string>('Document B');
-    const [status, setStatus] = useState<string>('Please upload two text files to begin comparison');
+    const [status, setStatus] = useState<string>('Ready to compare');
 
     const isReady = useMemo(() => fileA.file !== null && fileB.file !== null, [fileA.file, fileB.file]);
 
     const handleFileChange = useCallback((
         event: React.ChangeEvent<HTMLInputElement>,
         setFileState: React.Dispatch<React.SetStateAction<FileState>>,
-        setFileName: React.Dispatch<React.SetStateAction<string>>
+        setFileName: React.Dispatch<React.SetStateAction<string>>,
+        defaultName: string
     ) => {
         const file = event.target.files?.[0];
         if (file && file.name.endsWith('.txt')) {
@@ -85,348 +70,201 @@ export default function ComparatorPage() {
             reader.onload = (e) => {
                 const content = e.target?.result as string;
                 setFileState({ file, content });
-                setStatus(`File "${file.name}" uploaded successfully`);
-                setResult(null); // Reset result on new file upload
+                setResult(null);
             };
-            // Read file content as text using UTF-8 encoding
             reader.readAsText(file, 'utf-8');
         } else if (file) {
-            // Replaced alert() with Swal
             Swal.fire({
                 icon: 'error',
-                title: 'Invalid File Type',
-                text: 'Please select a .txt file only.',
-                confirmButtonColor: '#f59e0b',
+                title: 'Invalid File',
+                text: 'Please use .txt files only.',
+                confirmButtonColor: '#4f46e5',
             });
             setFileState(INITIAL_FILE_STATE);
-            setFileName(setFileName === setFileNameA ? 'Document A' : 'Document B');
+            setFileName(defaultName);
         }
-    }, [setFileNameA, setFileNameB]);
+    }, []);
 
     const handleCompare = useCallback(() => {
-        if (!isReady) {
-            // Replaced alert() with Swal
-            Swal.fire({
-                icon: 'warning',
-                title: 'Missing Files',
-                text: 'Please upload both .txt files before comparison.',
-                confirmButtonColor: '#f59e0b',
-            });
-            return;
-        }
-
-        setStatus('Processing comparison...');
-
-        try {
-            const compareResult = compareContents(fileA.content, fileB.content);
-            setResult(compareResult);
-
-            if (compareResult.diffCount === 0) {
-                setStatus(`✓ Comparison complete: Files are identical (${compareResult.maxLines} lines)`);
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Files are Identical!',
-                    text: `No differences found across ${compareResult.maxLines} lines.`,
-                    confirmButtonColor: '#10b981',
-                });
-            } else {
-                setStatus(`✓ Comparison complete: ${compareResult.diffCount} differences found`);
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Comparison Complete',
-                    text: `${compareResult.diffCount} differences found across ${compareResult.maxLines} lines.`,
-                    confirmButtonColor: '#f59e0b',
-                });
+        if (!isReady) return;
+        setStatus('Analyzing differences...');
+        setTimeout(() => {
+            const res = compareContents(fileA.content, fileB.content);
+            setResult(res);
+            setStatus(res.diffCount === 0 ? 'Files are identical' : `Found ${res.diffCount} differences`);
+            
+            if (res.diffCount === 0) {
+                Swal.fire({ icon: 'success', title: 'Perfect Match!', text: 'Both files are 100% identical.', confirmButtonColor: '#10b981' });
             }
-        } catch (error) {
-            console.error(error);
-            setStatus('⚠ An error occurred during processing');
-            Swal.fire({
-                icon: 'error',
-                title: 'Comparison Error',
-                text: 'An unexpected error occurred during the comparison process.',
-                confirmButtonColor: '#ef4444',
-            });
-        }
+        }, 500);
     }, [isReady, fileA.content, fileB.content]);
 
-    const handleClear = useCallback(() => {
-        // Replaced window.confirm() with Swal
+    const handleClear = () => {
         Swal.fire({
-            title: 'Are you sure?',
-            text: "This will clear both uploaded documents and the comparison results.",
+            title: 'Reset all data?',
+            text: "Uploaded files and results will be removed.",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: 'Yes, clear all!'
-        }).then((result) => {
-            if (result.isConfirmed) {
+            confirmButtonText: 'Yes, reset'
+        }).then((val) => {
+            if (val.isConfirmed) {
                 setFileA(INITIAL_FILE_STATE);
                 setFileB(INITIAL_FILE_STATE);
                 setFileNameA('Document A');
                 setFileNameB('Document B');
                 setResult(null);
-                setStatus('Please upload two text files to begin comparison');
-                Swal.fire(
-                    'Cleared!',
-                    'All data has been reset.',
-                    'success'
-                );
             }
         });
-    }, []);
+    };
 
-    const handleDownloadReport = useCallback(() => {
-        if (!result || result.diffCount === 0) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'No Report to Export',
-                text: 'There are no differences to report, or the comparison hasn\'t been run.',
-                confirmButtonColor: '#f59e0b',
-            });
-            return;
-        }
-
-        let reportContent = "FILE COMPARISON REPORT\n";
-        reportContent += "═══════════════════════════════════════════════\n";
-        reportContent += `Document 1: ${fileNameA} (${fileA.content.split(/\r?\n/).length} lines)\n`;
-        reportContent += `Document 2: ${fileNameB} (${fileB.content.split(/\r?\n/).length} lines)\n`;
-        reportContent += `Total Differences: ${result.diffCount}\n`;
-        reportContent += "═══════════════════════════════════════════════\n\n";
-
-        result.diffLines.forEach(diff => {
-            reportContent += `Line ${diff.lineNum}:\n`;
-            reportContent += `  [${fileNameA}] ${diff.file1Content}\n`;
-            reportContent += `  [${fileNameB}] ${diff.file2Content}\n\n`;
+    const handleDownloadReport = () => {
+        if (!result) return;
+        let report = `COMPARISON REPORT\nGenerated: ${new Date().toLocaleString()}\n\n`;
+        report += `Diff Count: ${result.diffCount}\n\n`;
+        result.diffLines.forEach(d => {
+            report += `Line ${d.lineNum}:\n[A]: ${d.file1Content}\n[B]: ${d.file2Content}\n\n`;
         });
-
-        // Create a downloadable blob
-        const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
+        const blob = new Blob([report], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-
-        link.setAttribute("href", url);
-        link.setAttribute("download", `comparison_report_${today}.txt`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-        Swal.fire({
-            icon: 'success',
-            title: 'Report Exported!',
-            text: 'Comparison report downloaded as a .txt file.',
-            confirmButtonColor: '#f59e0b',
-        });
-
-    }, [result, fileNameA, fileNameB, fileA.content, fileB.content]);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `report_${new Date().getTime()}.txt`;
+        a.click();
+    };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-100 to-stone-200 p-6">
-            {/* Classic Header */}
-            <header className="max-w-5xl mx-auto mb-10">
-                <div className="text-center py-8 bg-gradient-to-r from-slate-800 to-slate-700 rounded-t-lg shadow-lg border-b-4 border-amber-600">
-                    <div className="flex items-center justify-center gap-3 mb-3">
-                        <GitCompare className="w-10 h-10 text-amber-500" strokeWidth={2} />
-                        <h1 className="text-4xl font-serif font-bold text-white tracking-wide">
-                            File Comparator @ Billone
-                        </h1>
+        <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+            {/* Header เหมือนหน้า Data Mapper */}
+            <nav className="bg-slate-800 text-white shadow-xl border-b border-slate-700 py-5 px-8 sticky top-0 z-50">
+                <div className="max-w-7xl mx-auto flex items-center justify-between">
+                    <div className="flex items-center gap-6">
+                        <Link href="/" className="hover:bg-white/10 p-2 rounded-full transition-colors">
+                            <ArrowLeft className="w-6 h-6 text-slate-300" />
+                        </Link>
+                        <div className="flex items-center gap-4">
+                            <div className="bg-amber-500 p-2.5 rounded-xl shadow-lg">
+                                <GitCompare className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-extrabold tracking-tight">File Comparator <span className="text-amber-400 font-light">Pro</span></h1>
+                                <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-bold">Line-by-Line Content Analysis</p>
+                            </div>
+                        </div>
                     </div>
-                    <p className="text-slate-300 text-lg font-serif italic">
-                        Line-by-Line Text Document Analysis Tool
-                    </p>
                 </div>
-            </header>
+            </nav>
 
-            <main className="max-w-5xl mx-auto">
-                {/* Main Content Card */}
-                <div className="bg-white rounded-b-lg shadow-2xl border-4 border-slate-300">
+            <main className="max-w-7xl mx-auto px-6 py-12">
+                {/* Upload Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+                    {[
+                        { state: fileA, setState: setFileA, name: fileNameA, setName: setFileNameA, label: "Original File", id: "fA", color: "amber" },
+                        { state: fileB, setState: setFileB, name: fileNameB, setName: setFileNameB, label: "Target File", id: "fB", color: "indigo" }
+                    ].map((item, idx) => (
+                        <div key={idx} className={`bg-white rounded-[2rem] p-8 border-2 border-dashed transition-all duration-300 relative overflow-hidden ${item.state.file ? 'border-amber-200 shadow-md bg-amber-50/20' : 'border-slate-200 hover:border-slate-400'}`}>
+                            <div className="flex flex-col items-center text-center relative z-10">
+                                <div className={`p-4 rounded-2xl mb-4 ${item.state.file ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
+                                    <FileText className="w-8 h-8" />
+                                </div>
+                                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-2">{item.label}</h3>
+                                <p className="text-lg font-bold text-slate-700 mb-6 truncate max-w-full">{item.name}</p>
+                                
+                                <input type="file" accept=".txt" onChange={(e) => handleFileChange(e, item.setState, item.setName, idx === 0 ? 'Document A' : 'Document B')} className="hidden" id={item.id} />
+                                <button onClick={() => document.getElementById(item.id)?.click()} className="px-8 py-3 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-900 transition-all flex items-center gap-2">
+                                    <Upload className="w-4 h-4" /> {item.state.file ? 'Change File' : 'Select .txt File'}
+                                </button>
+                            </div>
+                            {item.state.file && <CheckCircle className="absolute top-6 right-6 w-6 h-6 text-emerald-500 animate-in zoom-in" />}
+                        </div>
+                    ))}
+                </div>
 
-                    {/* Upload Section */}
-                    <div className="p-8 bg-gradient-to-b from-slate-50 to-white border-b-2 border-slate-200">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Sticky Action Bar */}
+                <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-slate-200 shadow-lg p-4 flex flex-wrap items-center justify-between gap-4 sticky top-28 z-40 mb-10">
+                    <div className="flex items-center gap-3 px-4">
+                        <div className={`w-2.5 h-2.5 rounded-full ${isReady ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{status}</span>
+                    </div>
 
-                            {/* File A */}
-                            <div className={`relative border-3 rounded-lg transition-all duration-300 ${fileA.file
-                                    ? 'border-emerald-600 bg-emerald-50 shadow-lg'
-                                    : 'border-slate-400 bg-slate-50 hover:border-slate-600 hover:shadow-md'
-                                }`}>
-                                <div className="p-6">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <FileText className="w-5 h-5 text-slate-600" />
-                                        <h3 className="text-lg font-serif font-bold text-slate-800">{fileNameA}</h3>
-                                    </div>
-                                    <input
-                                        type="file"
-                                        accept=".txt"
-                                        onChange={(e) => handleFileChange(e, setFileA, setFileNameA)}
-                                        className="hidden"
-                                        id="fileA-upload"
-                                    />
-                                    <button
-                                        onClick={() => document.getElementById('fileA-upload')?.click()}
-                                        className="w-full py-3 px-4 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded border-2 border-slate-900 shadow-md transition-all duration-200 flex items-center justify-center gap-2"
-                                    >
-                                        <Upload className="w-4 h-4" />
-                                        {fileA.file ? 'Change File' : 'Select Document'}
-                                    </button>
-                                    {fileA.file && (
-                                        <div className="mt-3 flex items-center gap-2 text-emerald-700 text-sm">
-                                            <CheckCircle className="w-4 h-4" />
-                                            <span className="font-medium">File loaded: **{fileA.file.name}**</span>
-                                        </div>
+                    <div className="flex items-center gap-3">
+                        <button onClick={handleClear} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                            <Trash2 className="w-5 h-5" />
+                        </button>
+                        <button onClick={handleDownloadReport} disabled={!result || result.diffCount === 0} className="px-6 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-30 flex items-center gap-2 text-sm transition-all">
+                            <Download className="w-4 h-4" /> Export Report
+                        </button>
+                        <button onClick={handleCompare} disabled={!isReady} className="px-10 py-3 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 shadow-lg shadow-amber-500/20 disabled:grayscale disabled:opacity-50 flex items-center gap-2 transition-all">
+                            <GitCompare className="w-4 h-4" /> Run Comparison
+                        </button>
+                    </div>
+                </div>
+
+                {/* Results Table */}
+                {result && (
+                    <div className="bg-white rounded-[2rem] border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-10 duration-700">
+                        <div className="p-8 bg-slate-900 text-white flex justify-between items-center">
+                            <div>
+                                <h2 className="text-2xl font-black tracking-tight mb-1 uppercase">Analysis Result</h2>
+                                <p className="text-slate-400 text-sm">Found {result.diffCount} discrepancies across {result.maxLines} lines</p>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="text-center px-6 py-2 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
+                                    <div className="text-[10px] uppercase font-black text-amber-400 tracking-widest">Diffs</div>
+                                    <div className="text-2xl font-black">{result.diffCount}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-100 text-[11px] uppercase font-black text-slate-400 tracking-[0.1em]">
+                                        <th className="px-8 py-5 w-24">Line #</th>
+                                        <th className="px-8 py-5 border-l border-slate-100">{fileNameA}</th>
+                                        <th className="px-8 py-5 border-l border-slate-100">{fileNameB}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-50">
+                                    {result.diffCount > 0 ? (
+                                        result.diffLines.map((diff, i) => (
+                                            <tr key={i} className="group hover:bg-slate-50/50 transition-colors">
+                                                <td className="px-8 py-4 font-mono text-sm font-bold text-slate-300 group-hover:text-amber-500 transition-colors italic">
+                                                    {diff.lineNum.toString().padStart(3, '0')}
+                                                </td>
+                                                <td className="px-8 py-4 border-l border-slate-100">
+                                                    <div className={`p-3 rounded-xl font-mono text-xs border ${diff.file1Content.includes('<Missing') ? 'bg-red-50 border-red-100 text-red-500 italic' : 'bg-slate-50 border-slate-100 text-slate-600'}`}>
+                                                        {diff.file1Content}
+                                                    </div>
+                                                </td>
+                                                <td className="px-8 py-4 border-l border-slate-100">
+                                                    <div className={`p-3 rounded-xl font-mono text-xs border ${diff.file2Content.includes('<Missing') ? 'bg-red-50 border-red-100 text-red-500 italic' : 'bg-indigo-50 border-indigo-100 text-indigo-700 font-bold'}`}>
+                                                        {diff.file2Content}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={3} className="py-32 text-center">
+                                                <div className="flex flex-col items-center opacity-40">
+                                                    <CheckCircle className="w-20 h-20 text-emerald-500 mb-4" />
+                                                    <h3 className="text-xl font-bold">No Differences Found</h3>
+                                                    <p className="text-sm">These documents are perfectly synchronized.</p>
+                                                </div>
+                                            </td>
+                                        </tr>
                                     )}
-                                </div>
-                            </div>
-
-                            {/* File B */}
-                            <div className={`relative border-3 rounded-lg transition-all duration-300 ${fileB.file
-                                    ? 'border-emerald-600 bg-emerald-50 shadow-lg'
-                                    : 'border-slate-400 bg-slate-50 hover:border-slate-600 hover:shadow-md'
-                                }`}>
-                                <div className="p-6">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <FileText className="w-5 h-5 text-slate-600" />
-                                        <h3 className="text-lg font-serif font-bold text-slate-800">{fileNameB}</h3>
-                                    </div>
-                                    <input
-                                        type="file"
-                                        accept=".txt"
-                                        onChange={(e) => handleFileChange(e, setFileB, setFileNameB)}
-                                        className="hidden"
-                                        id="fileB-upload"
-                                    />
-                                    <button
-                                        onClick={() => document.getElementById('fileB-upload')?.click()}
-                                        className="w-full py-3 px-4 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded border-2 border-slate-900 shadow-md transition-all duration-200 flex items-center justify-center gap-2"
-                                    >
-                                        <Upload className="w-4 h-4" />
-                                        {fileB.file ? 'Change File' : 'Select Document'}
-                                    </button>
-                                    {fileB.file && (
-                                        <div className="mt-3 flex items-center gap-2 text-emerald-700 text-sm">
-                                            <CheckCircle className="w-4 h-4" />
-                                            <span className="font-medium">File loaded: **{fileB.file.name}**</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-
-                    {/* Control Panel */}
-                    <div className="p-6 bg-slate-100 border-b-2 border-slate-200">
-                        <div className="flex flex-wrap justify-center gap-4">
-                            <button
-                                onClick={handleCompare}
-                                disabled={!isReady}
-                                className={`px-6 py-3 font-serif font-bold rounded border-2 shadow-md transition-all duration-200 flex items-center gap-2 ${isReady
-                                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-800'
-                                        : 'bg-slate-300 text-slate-500 border-slate-400 cursor-not-allowed'
-                                    }`}
-                            >
-                                <GitCompare className="w-5 h-5" />
-                                Compare Documents
-                            </button>
-                            <button
-                                onClick={handleClear}
-                                className="px-6 py-3 font-serif font-bold rounded border-2 shadow-md transition-all duration-200 bg-red-600 hover:bg-red-700 text-white border-red-800 flex items-center gap-2"
-                            >
-                                <Trash2 className="w-5 h-5" />
-                                Clear All
-                            </button>
-                            <button
-                                onClick={handleDownloadReport}
-                                disabled={!result || result.diffCount === 0}
-                                className={`px-6 py-3 font-serif font-bold rounded border-2 shadow-md transition-all duration-200 flex items-center gap-2 ${result && result.diffCount > 0
-                                        ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-800'
-                                        : 'bg-slate-300 text-slate-500 border-slate-400 cursor-not-allowed'
-                                    }`}
-                            >
-                                <Download className="w-5 h-5" />
-                                Export Report
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Status Bar */}
-                    <div className="p-5 bg-white border-b-2 border-slate-200">
-                        <div className={`p-4 rounded border-l-4 font-serif ${status.startsWith('✓') ? 'bg-emerald-50 border-emerald-600 text-emerald-800' :
-                                status.startsWith('⚠') ? 'bg-amber-50 border-amber-600 text-amber-800' :
-                                    'bg-slate-50 border-slate-600 text-slate-800'
-                            }`}>
-                            <p className="text-center font-medium">{status}</p>
-                        </div>
-                    </div>
-
-                    {/* Results Section */}
-                    {result && (
-                        <div className="p-8 bg-white">
-                            <div className="mb-6 pb-4 border-b-2 border-slate-300">
-                                <h2 className="text-2xl font-serif font-bold text-slate-800 flex items-center gap-3">
-                                    <div className="w-2 h-8 bg-amber-600 rounded"></div>
-                                    Comparison Results
-                                    <span className="text-lg font-normal text-slate-600">
-                                        ({result.diffCount} of {result.maxLines} lines differ)
-                                    </span>
-                                </h2>
-                            </div>
-
-                            {result.diffCount > 0 ? (
-                                <div className="border-2 border-slate-300 rounded-lg overflow-hidden shadow-inner">
-                                    <div className="overflow-x-auto max-h-96">
-                                        <table className="min-w-full">
-                                            <thead className="bg-slate-700 sticky top-0">
-                                                <tr>
-                                                    <th className="px-4 py-3 text-left text-sm font-serif font-bold text-white w-24 border-r border-slate-600">Line</th>
-                                                    <th className="px-4 py-3 text-left text-sm font-serif font-bold text-white border-r border-slate-600">{fileNameA}</th>
-                                                    <th className="px-4 py-3 text-left text-sm font-serif font-bold text-white">{fileNameB}</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="bg-white">
-                                                {result.diffLines.map((diff, index) => (
-                                                    <tr key={index} className="border-b border-slate-200 hover:bg-amber-50 transition-colors">
-                                                        <td className="px-4 py-3 text-sm font-bold text-slate-900 bg-slate-100 border-r border-slate-300">
-                                                            {diff.lineNum}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-sm font-mono text-slate-700 border-r border-slate-200">
-                                                            <span className={diff.file1Content.startsWith('<Missing Line') ? 'text-red-600 italic font-serif' : ''}>
-                                                                {diff.file1Content.replace('<Missing Line (Document A)>', '**<DELETED LINE>**')}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-sm font-mono text-slate-700">
-                                                            <span className={diff.file2Content.startsWith('<Missing Line') ? 'text-red-600 italic font-serif' : ''}>
-                                                                {diff.file2Content.replace('<Missing Line (Document B)>', '**<INSERTED LINE>**')}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="text-center p-12 bg-emerald-50 rounded-lg border-2 border-emerald-200">
-                                    <CheckCircle className="w-16 h-16 text-emerald-600 mx-auto mb-4" />
-                                    <p className="text-xl font-serif font-bold text-emerald-800">
-                                        Documents are identical
-                                    </p>
-                                    <p className="text-slate-600 mt-2">No differences found between the files</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Footer */}
-                <div className="text-center mt-6 pb-6">
-                    <p className="text-slate-600 text-sm font-serif italic">
-                        Professional Document Comparison Tool
-                    </p>
-                </div>
+                )}
             </main>
+
+            <footer className="py-20 text-center opacity-30">
+                <p className="text-xs font-black uppercase tracking-[0.3em]">Precision Integrity Suite • Billone Analytics</p>
+            </footer>
         </div>
     );
 }
