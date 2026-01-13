@@ -18,7 +18,7 @@ export default function ProrateCalculatorPage() {
     // --- States สำหรับ Price Prorate ---
     const [priceBase, setPriceBase] = useState('');
     const [priceTotalDays, setPriceTotalDays] = useState('31');
-    const [priceActiveDays, setPriceActiveDays] = useState('');
+    const [priceActiveDays, setPriceActiveDays] = useState('1');
     const [priceOutput, setPriceOutput] = useState('0.00');
     const [priceStepDisplay, setPriceStepDisplay] = useState('N/A');
     const [hasCalculatedPrice, setHasCalculatedPrice] = useState(false);
