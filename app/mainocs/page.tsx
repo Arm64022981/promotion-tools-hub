@@ -159,7 +159,7 @@ export default function HomePage() {
         <footer className="relative overflow-hidden bg-gradient-to-r from-slate-800 via-gray-900 to-slate-800 py-12 text-center text-white">
           <div className="relative mb-6 flex justify-center gap-8 text-6xl font-black tracking-widest opacity-20">
             <span className="animate-pulse">OCS</span>
-            <span className="animate-pulse" style={{ animationDelay: '0.5s' }}>SQL</span>
+            <span className="animate-pulse" style={{ animationDelay: '0.5s' }}>TEAM GANG GANG</span>
           </div>
 
           <div className="relative space-y-2 text-sm text-gray-300">
