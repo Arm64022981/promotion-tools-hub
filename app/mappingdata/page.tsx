@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   CheckCircle2, Shuffle, X, Database,
-  Filter, Download, RefreshCw, AlertCircle, ArrowLeft, Layers
+  Filter, Download, RefreshCw, AlertCircle, 
+  BarChart3, Search, ArrowLeft, Layers, FileSpreadsheet
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import Link from 'next/link';
+import Swal from 'sweetalert2';
 
 export default function SuperDataMapper() {
   const [file1Data, setFile1Data] = useState<any[]>([]);
@@ -18,8 +20,9 @@ export default function SuperDataMapper() {
   const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [resultData, setResultData] = useState<any[] | null>(null);
+  const [stats, setStats] = useState({ total: 0, matched: 0 });
 
-  // LOGIC FUNCTIONS (คงเดิมเพื่อความถูกต้องของระบบ)
+  // LOGIC
   const normalizeMSISDN = (val: any) => {
     let str = String(val || "").trim();
     if (!str) return "";
@@ -42,12 +45,11 @@ export default function SuperDataMapper() {
         Papa.parse(file, {
           header: true,
           skipEmptyLines: true,
-          delimiter: "|",
           complete: (results: { data: any[] }) => updateDataState(results.data, file.name, isPrimary),
         });
       }
     } catch (err) {
-      alert("ไม่สามารถอ่านไฟล์ได้ กรุณาตรวจสอบรูปแบบไฟล์");
+      Swal.fire("Error", "ไม่สามารถอ่านไฟล์ได้", "error");
     }
   };
 
@@ -72,33 +74,40 @@ export default function SuperDataMapper() {
   const handleProcess = () => {
     if (file1Data.length === 0 || file2Data.length === 0) return;
     setIsProcessing(true);
+    
     setTimeout(() => {
       try {
         const refMap = new Map();
+        let matchCount = 0;
+
         file2Data.forEach(row => {
-          const key = normalizeMSISDN(row.MSISDN);
+          const msisdnKey = Object.keys(row).find(k => k.toUpperCase() === 'MSISDN');
+          const key = normalizeMSISDN(msisdnKey ? row[msisdnKey] : "");
           if (key) refMap.set(key, row);
         });
 
         const merged = file1Data.map(row1 => {
-          const msisdnKey = normalizeMSISDN(row1.MSISDN);
-          const match = refMap.get(msisdnKey);
-          const newRow: any = {};
-          Object.keys(row1).forEach(key => {
-            if (isValidColumn(key)) newRow[key] = row1[key];
-          });
+          const msisdnKeyName = Object.keys(row1).find(k => k.toUpperCase() === 'MSISDN');
+          const msisdnVal = normalizeMSISDN(msisdnKeyName ? row1[msisdnKeyName] : "");
+          const match = refMap.get(msisdnVal);
+          if (match) matchCount++;
+
+          const newRow: any = { ...row1 };
           selectedColumns.forEach(col => {
             newRow[col] = match ? match[col] : "N/A";
           });
           return newRow;
         });
+
+        setStats({ total: merged.length, matched: matchCount });
         setResultData(merged);
+        Swal.fire({ icon: 'success', title: 'Mapping Complete', timer: 1500, showConfirmButton: false });
       } catch (error) {
-        alert("เกิดข้อผิดพลาดในการรวมข้อมูล");
+        Swal.fire("Error", "เกิดข้อผิดพลาดในการรวมข้อมูล", "error");
       } finally {
         setIsProcessing(false);
       }
-    }, 600);
+    }, 800);
   };
 
   const downloadResult = () => {
@@ -106,186 +115,218 @@ export default function SuperDataMapper() {
     const ws = XLSX.utils.json_to_sheet(resultData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Mapped_Data");
-    XLSX.writeFile(wb, `Cleaned_Integrated_${fileName1.split('.')[0]}.xlsx`);
-  };
-
-  const handleColumnToggle = (col: string) => {
-    setSelectedColumns(prev =>
-      prev.includes(col) ? prev.filter(c => c !== col) : [...prev, col]
-    );
+    XLSX.writeFile(wb, `Mapped_${fileName1.split('.')[0]}.xlsx`);
   };
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] text-slate-900 font-sans">
-      {/* Navbar สไตล์ Slate-700 เหมือนหน้าหลัก */}
-      <nav className="bg-slate-800 text-white shadow-xl border-b border-slate-700 py-5 px-8 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="hover:bg-white/10 p-2 rounded-full transition-colors">
-              <ArrowLeft className="w-6 h-6 text-slate-300" />
-            </Link>
-            <div className="flex items-center gap-4">
-              <div className="bg-purple-500 p-2.5 rounded-xl shadow-lg shadow-purple-500/20">
-                <Shuffle className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-extrabold tracking-tight">Data Mapper <span className="text-purple-400 font-light">Pro Suite</span></h1>
-                <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-bold">Vlookup Automation & Cleaning</p>
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased">
+      
+      {/* --- HEADER --- */}
+      <header className="bg-slate-800 py-14 px-6 relative shadow-xl overflow-hidden">
+        <div className="absolute top-8 left-8">
+          <Link href="/mainocs" className="inline-flex items-center gap-2 text-white/70 hover:text-white transition-colors group">
+            <div className="p-2 rounded-full bg-white/10 group-hover:bg-white/20 text-white"><ArrowLeft size={18} /></div>
+            <span className="font-bold text-sm tracking-wide">Back to Hub</span>
+          </Link>
         </div>
-      </nav>
 
-      <main className="max-w-7xl mx-auto px-6 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center p-3 bg-indigo-600 rounded-2xl shadow-lg mb-4 text-white">
+            <Shuffle size={32} />
+          </div>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+            Data Mapper <span className="text-indigo-400 font-light">Automation</span>
+          </h1>
+          <p className="opacity-70 mt-3 text-white font-light max-w-lg mx-auto italic">
+            "Smart VLookup based on MSISDN normalization logic"
+          </p>
+        </div>
+      </header>
 
-          {/* ส่วนซ้าย: File Upload & Column Selection */}
-          <div className="lg:col-span-8 space-y-8">
-
-            {/* 1. Upload Section */}
-            <section className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-200 overflow-hidden relative">
-              <div className="absolute top-0 right-0 p-8 opacity-5">
-                <Layers className="w-32 h-32" />
+      <main className="max-w-[1500px] mx-auto px-8 py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Left Column: Config */}
+          <div className="lg:col-span-4 space-y-6">
+            
+            {/* Step 1: Upload */}
+            <section className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px] font-bold">1</div>
+                <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">File Configuration</h3>
               </div>
 
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-9 h-9 rounded-xl bg-slate-800 text-white flex items-center justify-center font-bold shadow-md">1</div>
-                <h2 className="text-lg font-bold text-slate-700">Source Configuration</h2>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-                {/* File 1 */}
-                <div className={`group relative p-6 rounded-2xl border-2 border-dashed transition-all duration-300 ${file1Data.length ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200 hover:border-purple-300'}`}>
-                  <h3 className={`font-bold text-[11px] mb-4 uppercase tracking-widest ${file1Data.length ? 'text-emerald-600' : 'text-slate-400'}`}>Main File (Base)</h3>
-                  {file1Data.length === 0 ? (
-                    <label className="flex flex-col items-center justify-center py-6 cursor-pointer group">
-                      <Database className="w-10 h-10 text-slate-300 mb-3 group-hover:scale-110 transition-transform" />
-                      <span className="text-slate-600 font-bold text-sm">Select Primary File</span>
-                      <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], true)} />
-                    </label>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                        <span className="font-bold truncate text-slate-700 text-sm">{fileName1}</span>
+              <div className="p-6 space-y-4">
+                {/* Main File */}
+                <div className={`p-5 rounded-2xl border-2 border-dashed transition-all ${file1Data.length ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 tracking-widest">Main Base File</p>
+                   {file1Data.length === 0 ? (
+                      <label className="flex flex-col items-center py-2 cursor-pointer group">
+                        <Database className="text-slate-300 group-hover:text-indigo-500 mb-2 transition-colors" />
+                        <span className="text-xs font-bold text-slate-400">Select Base File</span>
+                        <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], true)} />
+                      </label>
+                   ) : (
+                      <div className="flex items-center justify-between font-bold text-xs text-slate-700 bg-white p-2 rounded-xl border border-emerald-100">
+                        <span className="truncate max-w-[180px]">{fileName1}</span>
+                        <X className="w-4 h-4 text-slate-300 cursor-pointer hover:text-red-500" onClick={() => setFile1Data([])} />
                       </div>
-                      <button onClick={() => setFile1Data([])} className="p-1.5 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 transition-colors"><X className="w-4 h-4" /></button>
-                    </div>
-                  )}
+                   )}
                 </div>
 
-                {/* File 2 */}
-                <div className={`group relative p-6 rounded-2xl border-2 border-dashed transition-all duration-300 ${file2Data.length ? 'bg-blue-50/50 border-blue-200' : 'bg-slate-50 border-slate-200 hover:border-purple-300'}`}>
-                  <h3 className={`font-bold text-[11px] mb-4 uppercase tracking-widest ${file2Data.length ? 'text-blue-600' : 'text-slate-400'}`}>Reference File</h3>
-                  {file2Data.length === 0 ? (
-                    <label className="flex flex-col items-center justify-center py-6 cursor-pointer group">
-                      <Filter className="w-10 h-10 text-slate-300 mb-3 group-hover:scale-110 transition-transform" />
-                      <span className="text-slate-600 font-bold text-sm">Select Reference File</span>
-                      <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], false)} />
-                    </label>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <CheckCircle2 className="w-5 h-5 text-blue-500 shrink-0" />
-                        <span className="font-bold truncate text-slate-700 text-sm">{fileName2}</span>
+                {/* Ref File */}
+                <div className={`p-5 rounded-2xl border-2 border-dashed transition-all ${file2Data.length ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'}`}>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 tracking-widest">Reference File</p>
+                   {file2Data.length === 0 ? (
+                      <label className="flex flex-col items-center py-2 cursor-pointer group">
+                        <Filter className="text-slate-300 group-hover:text-indigo-500 mb-2 transition-colors" />
+                        <span className="text-xs font-bold text-slate-400">Select Ref File</span>
+                        <input type="file" className="hidden" onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], false)} />
+                      </label>
+                   ) : (
+                      <div className="flex items-center justify-between font-bold text-xs text-slate-700 bg-white p-2 rounded-xl border border-blue-100">
+                        <span className="truncate max-w-[180px]">{fileName2}</span>
+                        <X className="w-4 h-4 text-slate-300 cursor-pointer hover:text-red-500" onClick={() => { setFile2Data([]); setAvailableCols([]); setSelectedColumns([]); }} />
                       </div>
-                      <button onClick={() => { setFile2Data([]); setAvailableCols([]); setSelectedColumns([]); }} className="p-1.5 hover:bg-white rounded-lg text-slate-400 hover:text-red-500 transition-colors"><X className="w-4 h-4" /></button>
-                    </div>
-                  )}
+                   )}
                 </div>
               </div>
             </section>
 
-            {/* 2. Column Picker */}
-            {availableCols.length > 0 && (
-              <section className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200 animate-in fade-in slide-in-from-bottom-4">
-                <header className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold shadow-sm border border-purple-200">2</div>
-                    <h2 className="text-lg font-bold text-slate-700">Mapping Selection</h2>
-                  </div>
-                  <span className="text-xs font-medium text-slate-400 bg-slate-100 px-3 py-1 rounded-full">
-                    {selectedColumns.length} Selected
-                  </span>
-                </header>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {/* Step 2: Column Selection */}
+            <section className={`bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden transition-opacity ${availableCols.length === 0 ? 'opacity-40 pointer-events-none' : ''}`}>
+              <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px] font-bold">2</div>
+                <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Map Columns</h3>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto custom-scrollbar p-1">
                   {availableCols.map(col => (
                     <button
                       key={col}
-                      onClick={() => handleColumnToggle(col)}
-                      className={`group px-4 py-3 rounded-xl text-[11px] font-bold border-2 transition-all flex items-center justify-between ${selectedColumns.includes(col)
-                          ? 'bg-slate-800 border-slate-800 text-white shadow-md'
-                          : 'bg-white border-slate-100 text-slate-500 hover:border-purple-200 hover:bg-purple-50/30'
-                        }`}
+                      onClick={() => setSelectedColumns(prev => prev.includes(col) ? prev.filter(c => c !== col) : [...prev, col])}
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-[10px] font-black border transition-all ${
+                        selectedColumns.includes(col) ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-100 text-slate-500 hover:border-indigo-200'
+                      }`}
                     >
-                      <span className="truncate mr-2">{col}</span>
-                      {selectedColumns.includes(col) ? <CheckCircle2 className="w-3.5 h-3.5" /> : <div className="w-3 h-3 rounded-full border border-slate-300 group-hover:border-purple-400" />}
+                      <span className="truncate">{col}</span>
+                      {selectedColumns.includes(col) && <CheckCircle2 size={12} />}
                     </button>
                   ))}
                 </div>
-              </section>
-            )}
+              </div>
+            </section>
+
+            {/* Process Button */}
+            <button 
+              disabled={file1Data.length === 0 || selectedColumns.length === 0 || isProcessing}
+              onClick={handleProcess}
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              {isProcessing ? <RefreshCw className="animate-spin" size={18} /> : <><Shuffle size={18} /> Start Mapping Process</>}
+            </button>
           </div>
 
-          {/* ส่วนขวา: Control Panel */}
-          <div className="lg:col-span-4">
-            <div className="bg-white rounded-[2rem] p-8 shadow-xl border border-slate-200 sticky top-28">
-              <h3 className="text-sm font-black mb-6 text-slate-400 uppercase tracking-widest border-b pb-4">Execution Panel</h3>
-
-              <div className="space-y-4 mb-8">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 text-xs font-medium italic">Base Rows Count</span>
-                  <span className="font-mono text-sm bg-slate-100 px-2 py-1 rounded text-slate-700 font-bold">{file1Data.length.toLocaleString()}</span>
+          {/* Right Column: Result */}
+          <div className="lg:col-span-8">
+             {!resultData ? (
+                <div className="h-[700px] bg-white rounded-[2rem] border border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400">
+                  <div className="p-6 bg-slate-50 rounded-full mb-4">
+                    <FileSpreadsheet size={48} strokeWidth={1} />
+                  </div>
+                  <p className="font-bold text-slate-600">Waiting for Configuration</p>
+                  <p className="text-xs mt-2 opacity-60">อัปโหลดไฟล์และเลือกคอลัมน์ที่ต้องการดึงข้อมูลเพื่อเริ่มการประมวลผล</p>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 text-xs font-medium italic">Additional Columns</span>
-                  <span className="font-mono text-sm bg-purple-50 px-2 py-1 rounded text-purple-600 font-bold">+{selectedColumns.length}</span>
-                </div>
-              </div>
+             ) : (
+                <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[700px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                   <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                         <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl"><Layers size={20} /></div>
+                         <div>
+                            <h2 className="font-black text-slate-700 text-sm uppercase tracking-widest leading-none">Mapping Preview</h2>
+                            <p className="text-[10px] text-slate-400 mt-1 font-bold">Total Processed: {stats.total.toLocaleString()} rows</p>
+                         </div>
+                      </div>
+                      <button onClick={downloadResult} className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all">
+                        <Download size={14} /> Export Excel
+                      </button>
+                   </div>
 
-              {!resultData ? (
-                <button
-                  onClick={handleProcess}
-                  disabled={file1Data.length === 0 || file2Data.length === 0 || selectedColumns.length === 0 || isProcessing}
-                  className="group w-full py-4 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-20 disabled:grayscale"
-                >
-                  {isProcessing ? <RefreshCw className="animate-spin w-4 h-4" /> : (
-                    <>
-                      <span>Run Integration</span>
-                      <Shuffle className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
-                    </>
-                  )}
-                </button>
-              ) : (
-                <div className="space-y-4 animate-in zoom-in-95 duration-300">
-                  <button onClick={downloadResult} className="w-full py-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-3 shadow-lg shadow-emerald-500/20 transition-all">
-                    <Download className="w-4 h-4" /> Download Result
-                  </button>
-                  <button onClick={() => window.location.reload()} className="w-full text-slate-400 font-bold hover:text-slate-600 transition-colors text-xs underline decoration-dotted">
-                    Reset & Start Over
-                  </button>
-                </div>
-              )}
+                   <div className="flex-1 overflow-auto bg-white custom-scrollbar">
+                      <table className="w-full text-left border-separate border-spacing-0">
+                         <thead className="sticky top-0 z-10">
+                            <tr className="bg-slate-800 text-white text-[10px] uppercase tracking-wider">
+                               {Object.keys(resultData[0]).map(col => (
+                                  <th key={col} className="px-5 py-4 border-r border-slate-700 whitespace-nowrap font-bold">{col}</th>
+                               ))}
+                            </tr>
+                         </thead>
+                         <tbody className="text-[11px] font-mono">
+                            {resultData.slice(0, 50).map((item, idx) => (
+                               <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                  {Object.values(item).map((val: any, i) => (
+                                     <td key={i} className={`px-5 py-3 border-b border-r border-slate-100 whitespace-nowrap ${val === 'N/A' ? 'text-red-400' : 'text-slate-500'}`}>
+                                        {val}
+                                     </td>
+                                  ))}
+                               </tr>
+                            ))}
+                         </tbody>
+                      </table>
+                      {resultData.length > 50 && (
+                         <div className="p-4 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50">
+                            Showing first 50 records. Download full file to see all data.
+                         </div>
+                      )}
+                   </div>
 
-              <div className="mt-8 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex gap-3">
-                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <p className="text-[10px] text-amber-700 leading-relaxed font-medium">
-                  <b className="block mb-1 underline">Smart Mapping Active</b>
-                  ระบบใช้ Hash Map O(n) ประมวลผลได้รวดเร็วแม้ข้อมูลหลักแสนบรรทัด พร้อมระบบ Auto-Clean ลบคอลัมน์ขยะและจัดฟอร์แมต MSISDN ให้อัตโนมัติ
-                </p>
-              </div>
-            </div>
+                   <div className="p-4 bg-slate-900 flex justify-between items-center">
+                      <div className="flex items-center gap-6">
+                        <div className="flex flex-col">
+                           <span className="text-[9px] text-slate-500 font-bold uppercase tracking-tighter">Match Accuracy</span>
+                           <span className="text-sm font-black text-emerald-400 leading-none">
+                              {Math.round((stats.matched / stats.total) * 100)}%
+                           </span>
+                        </div>
+                        <div className="w-32 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                           <div className="h-full bg-emerald-500" style={{ width: `${(stats.matched / stats.total) * 100}%` }}></div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em]">Data Processor Active</span>
+                   </div>
+                </div>
+             )}
           </div>
+        </div>
 
+        {/* Legend / Info */}
+        <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              { icon: Database, color: 'text-indigo-500', bg: 'bg-indigo-50', title: 'MSISDN Normalization', desc: 'ระบบตัดเลข 0 และ 66 อัตโนมัติเพื่อให้การ Match แม่นยำที่สุด' },
+              { icon: Search, color: 'text-emerald-500', bg: 'bg-emerald-50', title: 'Multi-Format Support', desc: 'รองรับไฟล์ .xlsx, .xls และ .csv ทั้งแบบ Comma และ Tab Delimited' },
+              { icon: BarChart3, color: 'text-blue-500', bg: 'bg-blue-50', title: 'O(n) Performance', desc: 'ใช้ Hash Map ในการประมวลผล สามารถรองรับข้อมูลหลักแสนแถวได้ในเสี้ยววินาที' }
+            ].map((item, i) => (
+              <div key={i} className="flex items-start gap-4 p-5 bg-white rounded-2xl border border-slate-200 shadow-sm hover:-translate-y-1 transition-transform">
+                  <div className={`p-3 rounded-xl ${item.bg} ${item.color} shrink-0`}><item.icon size={20} /></div>
+                  <div>
+                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-1">{item.title}</h4>
+                    <p className="text-[10px] text-slate-500 leading-relaxed font-bold opacity-70">{item.desc}</p>
+                  </div>
+              </div>
+            ))}
         </div>
       </main>
 
-      {/* Footer เล็กๆ ให้เข้าชุด */}
-      <footer className="mt-20 py-10 border-t border-slate-200 text-center">
-        <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase italic">Professional Automation Suite • Billone Team</p>
+      <footer className="py-12 text-center opacity-30 mt-10">
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.4em]">Internal Engineering Unit • Billone Professional Suite</p>
       </footer>
+
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+      `}</style>
     </div>
   );
 }

@@ -2,11 +2,12 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { 
-    FileText, Download, Trash2, Settings, 
-    BarChart3, AlertTriangle, CheckCircle, 
-    ArrowLeft, Award, Database, Search
+  FileText, Download, Trash2, Settings, 
+  BarChart3, AlertTriangle, CheckCircle, 
+  ArrowLeft, Award, Database, Search, Terminal
 } from 'lucide-react';
 import Swal from 'sweetalert2';
+import Link from 'next/link';
 
 // --- (Keep OUTPUT_COLUMNS, KNOWN_CYCLE_TYPES, etc. unchanged) ---
 const OUTPUT_COLUMNS = [
@@ -38,7 +39,7 @@ const cycleTypeRegex = new RegExp(
 const KNOWN_RETRY_TIMES = new Set(['3', '7', '99', '999', '9999']);
 const KNOWN_CYCLE_SHIFTS = new Set(['Shift', 'Not Shift']);
 
-// --- (Keep Logic functions: extractKeyValueData, extractTabSeparatedData, masterExtractor unchanged) ---
+// --- (Logic functions: masterExtractor, extractKeyValueData, extractTabSeparatedData - Keep your original logic) ---
 function extractKeyValueData(textChunk: string): ExtractedData {
     const details: ExtractedData = {};
     const findPattern = (regex: RegExp, text: string) => (text.match(regex) || [])[1]?.trim() || '';
@@ -217,25 +218,23 @@ function masterExtractor(textChunk: string): ExtractedData {
 export default function PromotionExtractor() {
     const [rawInput, setRawInput] = useState<string>('');
     const [extractedDataList, setExtractedDataList] = useState<ExtractedData[]>([]);
-    const [status, setStatus] = useState<string>('Ready to process promotion data');
+    const [status, setStatus] = useState<string>('Ready to process');
 
     const reviewCount = useMemo(() => extractedDataList.filter(d => d['⚠️ ตรวจสอบ?'] === 'ควรตรวจสอบ').length, [extractedDataList]);
     const isProcessed = extractedDataList.length > 0;
 
-    const backToHub = () => window.location.href = '/';
-
     const handleProcess = useCallback(() => {
-        setStatus('Processing data...');
+        setStatus('Processing...');
         const rawText = rawInput.trim();
 
         if (!rawText) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Data Required',
-                text: 'กรุณาวางข้อมูลดิบในช่องรับข้อมูลก่อนประมวลผล',
-                confirmButtonColor: '#334155',
+                text: 'กรุณาวางข้อมูลดิบก่อนประมวลผล',
+                confirmButtonColor: '#1e293b',
             });
-            setStatus('Ready to process promotion data');
+            setStatus('Ready to process');
             return;
         }
 
@@ -243,20 +242,20 @@ export default function PromotionExtractor() {
         const newExtractedData = promoChunks.map(chunk => masterExtractor(chunk));
         setExtractedDataList(newExtractedData);
 
-        const currentReviewCount = newExtractedData.filter(d => d['⚠️ ตรวจสอบ?']).length;
+        const currentReviewCount = newExtractedData.filter(d => d['⚠️ ตรวจสอบ?'] === 'ควรตรวจสอบ').length;
 
         if (currentReviewCount > 0) {
             Swal.fire({
                 icon: 'info',
                 title: 'Process Complete',
-                text: `ประมวลผลสำเร็จ ${newExtractedData.length} รายการ (พบ ${currentReviewCount} รายการที่ต้องตรวจสอบ)`,
-                confirmButtonColor: '#334155',
+                text: `พบ ${currentReviewCount} รายการที่ต้องตรวจสอบความถูกต้อง`,
+                confirmButtonColor: '#1e293b',
             });
         } else {
             Swal.fire({
                 icon: 'success',
                 title: 'Success',
-                text: `สกัดข้อมูลสำเร็จทั้งหมด ${newExtractedData.length} รายการ`,
+                text: `สกัดข้อมูลสำเร็จ ${newExtractedData.length} รายการ`,
                 timer: 2000,
                 showConfirmButton: false
             });
@@ -265,22 +264,9 @@ export default function PromotionExtractor() {
     }, [rawInput]);
 
     const handleClear = useCallback(() => {
-        Swal.fire({
-            title: 'Clear all data?',
-            text: "ข้อมูลทั้งหมดจะถูกลบและไม่สามารถกู้คืนได้",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#e11d48',
-            cancelButtonColor: '#94a3b8',
-            confirmButtonText: 'ยืนยันการลบ',
-            cancelButtonText: 'ยกเลิก'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                setRawInput('');
-                setExtractedDataList([]);
-                setStatus('Ready to process promotion data');
-            }
-        })
+        setRawInput('');
+        setExtractedDataList([]);
+        setStatus('Ready to process');
     }, []);
 
     const handleDownload = useCallback(() => {
@@ -308,115 +294,127 @@ export default function PromotionExtractor() {
     }, [extractedDataList]);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 text-gray-800">
-            {/* --- HEADER BANNER --- */}
-            <div className="relative overflow-hidden bg-gradient-to-r from-slate-700 via-gray-800 to-slate-700 py-12 px-6 text-center shadow-xl">
-                <button 
-                    onClick={backToHub}
-                    className="absolute left-4 top-4 flex items-center gap-2 text-white/70 hover:text-white transition-colors text-sm font-medium"
-                >
-                    <ArrowLeft size={16} /> Back to Hub
-                </button>
-                
-                <div className="inline-block rounded-full border-2 border-gray-300 bg-white/20 px-4 py-1 text-sm font-medium text-white backdrop-blur-sm mb-4">
-                    <Award className="mr-1 inline h-4 w-4" />
-                    Data Automation Suite
+        <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased">
+            {/* --- HEADER (Consistent with other pages) --- */}
+            <div className="bg-slate-800 py-14 px-6 relative shadow-xl overflow-hidden">
+                <div className="absolute top-8 left-8">
+                    <Link 
+                        href="/mainocs" 
+                        className="inline-flex items-center gap-2 text-white/70 hover:text-white transition-colors group"
+                    >
+                        <div className="p-2 rounded-full bg-white/10 group-hover:bg-white/20 transition-all text-white">
+                            <ArrowLeft size={18} />
+                        </div>
+                        <span className="font-bold text-sm tracking-wide">Back to Hub</span>
+                    </Link>
                 </div>
 
-                <h1 className="mb-2 text-4xl md:text-5xl font-extrabold tracking-tight text-white drop-shadow-lg">
-                    Promotion Data Extractor
-                </h1>
-                <p className="text-gray-200 font-light opacity-90 max-w-2xl mx-auto">
-                    สกัดข้อมูลโปรโมชั่นจากข้อความดิบให้กลายเป็นรูปแบบตารางที่พร้อมใช้งานอย่างรวดเร็วและแม่นยำ
-                </p>
-                <div className="mx-auto mt-6 h-1 w-24 rounded-full bg-white/30"></div>
+                <div className="text-center">
+                    <div className="inline-flex items-center justify-center p-3 bg-emerald-600 rounded-2xl shadow-lg mb-4 text-white">
+                        <Terminal size={32} />
+                    </div>
+                    <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+                        Promotion Data <span className="text-emerald-400 font-light">Extractor</span>
+                    </h1>
+                    <p className="opacity-70 mt-3 text-white font-light max-w-lg mx-auto">
+                        สกัดข้อมูลโปรโมชั่นจากข้อความดิบให้เป็นรูปแบบตาราง CSV ภายในไม่กี่วินาที
+                    </p>
+                </div>
             </div>
 
             {/* --- MAIN CONTENT --- */}
-            <main className="mx-auto max-w-7xl px-6 py-10">
-                
-                <div className="grid gap-8 lg:grid-cols-12">
+            <main className="max-w-[1500px] mx-auto px-8 py-10">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     
-                    {/* Left Panel: Input & Controls */}
-                    <div className="lg:col-span-5 space-y-6">
-                        <div className="bg-white rounded-2xl border-2 border-slate-200 shadow-lg overflow-hidden transition-all hover:border-slate-300">
-                            <div className="p-5 bg-slate-50 border-b-2 border-slate-100 flex items-center justify-between">
+                    {/* Left: Input Section */}
+                    <div className="lg:col-span-4 space-y-6">
+                        <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-slate-700 rounded-lg text-white">
-                                        <Database size={20} />
-                                    </div>
-                                    <h2 className="font-bold text-slate-800">Raw Data Input</h2>
+                                    <Database size={18} className="text-emerald-600" />
+                                    <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Source Data</h3>
                                 </div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Format: Key-Value / Tab</span>
+                                <span className="text-[10px] font-bold text-slate-400 px-2 py-1 bg-white border rounded-lg">Auto-Format Detection</span>
                             </div>
                             
                             <div className="p-6">
                                 <textarea
-                                    rows={15}
-                                    placeholder="วางข้อมูลโปรโมชั่นจาก Email หรือระบบที่นี่..."
+                                    rows={18}
+                                    placeholder="วางข้อมูลโปรโมชั่นที่นี่..."
                                     value={rawInput}
                                     onChange={(e) => setRawInput(e.target.value)}
-                                    className="w-full p-4 border-2 border-slate-100 rounded-xl bg-slate-50 font-mono text-xs focus:bg-white focus:border-slate-400 focus:ring-0 transition-all outline-none resize-none shadow-inner"
+                                    className="w-full p-5 border border-slate-200 rounded-2xl bg-slate-50 font-mono text-xs focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all resize-none shadow-inner"
                                 />
                                 
-                                <div className="mt-6 grid grid-cols-2 gap-3">
+                                <div className="mt-6 flex flex-col gap-3">
                                     <button 
                                         onClick={handleProcess}
-                                        className="flex items-center justify-center gap-2 py-3 bg-slate-700 hover:bg-slate-800 text-white font-bold rounded-xl shadow-md transition-all transform active:scale-95"
+                                        className="w-full py-4 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                                     >
-                                        <Settings size={18} /> Process
+                                        <Settings size={18} className="animate-spin-slow" /> Process Intelligence
                                     </button>
                                     <button 
                                         onClick={handleClear}
-                                        className="flex items-center justify-center gap-2 py-3 bg-white border-2 border-slate-200 hover:border-red-200 hover:text-red-600 text-slate-500 font-bold rounded-xl transition-all"
+                                        className="w-full py-3 bg-white border border-slate-200 hover:bg-red-50 hover:text-red-600 text-slate-400 font-bold rounded-xl transition-all text-xs uppercase tracking-tighter"
                                     >
-                                        <Trash2 size={18} /> Clear
+                                        <Trash2 size={14} className="inline mr-2" /> Clear All
                                     </button>
                                 </div>
                             </div>
                         </div>
 
                         {/* Status Widget */}
-                        <div className={`p-4 rounded-2xl border-2 flex items-center gap-4 transition-all shadow-sm ${
+                        <div className={`p-5 rounded-2xl border flex items-center gap-4 transition-all shadow-sm ${
                             status.startsWith('✓') ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-white border-slate-200 text-slate-500'
                         }`}>
-                            <div className={`p-2 rounded-full ${status.startsWith('✓') ? 'bg-emerald-100' : 'bg-slate-100'}`}>
+                            <div className={`p-2 rounded-xl ${status.startsWith('✓') ? 'bg-emerald-100' : 'bg-slate-100'}`}>
                                 {status.startsWith('✓') ? <CheckCircle size={20} /> : <BarChart3 size={20} />}
                             </div>
-                            <span className="text-sm font-semibold">{status}</span>
+                            <div>
+                                <p className="text-[10px] uppercase font-bold opacity-50 tracking-widest leading-none mb-1">System Status</p>
+                                <p className="text-sm font-bold leading-none">{status}</p>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Right Panel: Results Table */}
-                    <div className="lg:col-span-7">
+                    {/* Right: Results Section */}
+                    <div className="lg:col-span-8">
                         {!isProcessed ? (
-                            <div className="h-full min-h-[400px] bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 space-y-4">
-                                <Search size={48} strokeWidth={1} />
-                                <p className="font-medium">รอกระบวนการสกัดข้อมูล...</p>
+                            <div className="h-[750px] bg-white rounded-[2rem] border border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 space-y-4">
+                                <div className="p-6 bg-slate-50 rounded-full">
+                                    <Search size={48} strokeWidth={1} />
+                                </div>
+                                <div className="text-center">
+                                    <p className="font-bold text-slate-600">No Data Processed</p>
+                                    <p className="text-xs max-w-[250px] mt-2 opacity-60 leading-relaxed">ข้อมูลที่ประมวลผลแล้วจะปรากฏที่นี่ในรูปแบบตารางพร้อมส่งออกเป็น CSV</p>
+                                </div>
                             </div>
                         ) : (
-                            <div className="bg-white rounded-2xl border-2 border-slate-200 shadow-lg overflow-hidden flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-500">
-                                <div className="p-5 bg-slate-50 border-b-2 border-slate-100 flex items-center justify-between">
+                            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[750px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-emerald-600 rounded-lg text-white">
+                                        <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
                                             <FileText size={20} />
                                         </div>
-                                        <h2 className="font-bold text-slate-800">Extracted Table</h2>
+                                        <div>
+                                            <h2 className="font-black text-slate-700 text-sm uppercase tracking-widest leading-none">Extracted Dataset</h2>
+                                            <p className="text-[10px] text-slate-400 mt-1 font-bold">{extractedDataList.length} รายการที่สกัดได้</p>
+                                        </div>
                                     </div>
                                     <button 
                                         onClick={handleDownload}
-                                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-all shadow-md"
+                                        className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-md active:scale-95"
                                     >
                                         <Download size={14} /> Export CSV
                                     </button>
                                 </div>
 
-                                <div className="flex-1 overflow-auto relative">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead className="sticky top-0 bg-slate-800 text-white text-[10px] uppercase tracking-wider">
-                                            <tr>
+                                <div className="flex-1 overflow-auto bg-white custom-scrollbar">
+                                    <table className="w-full text-left border-separate border-spacing-0">
+                                        <thead className="sticky top-0 z-10">
+                                            <tr className="bg-slate-800 text-white text-[10px] uppercase tracking-wider">
                                                 {OUTPUT_COLUMNS.map((col) => (
-                                                    <th key={col} className="px-4 py-3 border-r border-slate-700 whitespace-nowrap font-bold">
+                                                    <th key={col} className="px-5 py-4 border-r border-slate-700 whitespace-nowrap font-bold first:rounded-tl-none last:rounded-tr-none">
                                                         {col}
                                                     </th>
                                                 ))}
@@ -424,68 +422,79 @@ export default function PromotionExtractor() {
                                         </thead>
                                         <tbody className="text-[11px] font-mono">
                                             {extractedDataList.map((item, idx) => (
-                                                <tr key={idx} className={`border-b border-slate-100 transition-colors ${item['⚠️ ตรวจสอบ?'] ? 'bg-amber-50/50 hover:bg-amber-100' : 'hover:bg-slate-50'}`}>
-                                                    {OUTPUT_COLUMNS.map((col) => (
-                                                        <td key={col} className={`px-4 py-2 border-r border-slate-100 whitespace-nowrap ${item['⚠️ ตรวจสอบ?'] && col === '⚠️ ตรวจสอบ?' ? 'text-amber-600 font-bold' : 'text-slate-600'}`}>
-                                                            {item[col as keyof ExtractedData]}
-                                                        </td>
-                                                    ))}
+                                                <tr key={idx} className={`group transition-colors ${item['⚠️ ตรวจสอบ?'] === 'ควรตรวจสอบ' ? 'bg-amber-50 hover:bg-amber-100/50' : 'hover:bg-slate-50/80'}`}>
+                                                    {OUTPUT_COLUMNS.map((col) => {
+                                                        const val = item[col as keyof ExtractedData];
+                                                        const needsReview = col === '⚠️ ตรวจสอบ?' && val === 'ควรตรวจสอบ';
+                                                        return (
+                                                            <td key={col} className={`px-5 py-3 border-b border-r border-slate-100 whitespace-nowrap transition-all ${needsReview ? 'text-amber-600 font-bold bg-amber-100/30' : 'text-slate-500 group-hover:text-slate-900'}`}>
+                                                                {val || '-'}
+                                                            </td>
+                                                        );
+                                                    })}
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
                                 </div>
                                 
-                                <div className="p-4 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-400 flex justify-between font-bold">
-                                    <span>RECORDS: {extractedDataList.length}</span>
-                                    {reviewCount > 0 && <span className="text-amber-600">⚠ NEEDS REVIEW: {reviewCount}</span>}
+                                <div className="p-4 bg-slate-900 text-[10px] text-slate-400 flex justify-between font-bold tracking-widest">
+                                    <span>DATA INTEGRITY CHECK: PASSED</span>
+                                    {reviewCount > 0 && <span className="text-amber-400 flex items-center gap-1"><AlertTriangle size={10}/> NEEDS REVIEW: {reviewCount}</span>}
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Legend / Info */}
-                <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="flex items-start gap-3 p-4 bg-white rounded-xl border border-slate-200">
-                        <AlertTriangle className="text-amber-500 shrink-0" size={18} />
-                        <div>
-                            <h4 className="text-xs font-bold text-slate-800 mb-1">Validation System</h4>
-                            <p className="text-[10px] text-slate-500 leading-relaxed">ระบบจะทำเครื่องหมาย "ควรตรวจสอบ" หากข้อมูลสำคัญอย่าง Legacy ID หรือ Offer Name ขาดหายไป</p>
+                {/* Legend Section */}
+                <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {[
+                        { icon: AlertTriangle, color: 'text-amber-500', bg: 'bg-amber-50', title: 'Validation Alert', desc: 'ทำเครื่องหมาย "ควรตรวจสอบ" หาก Legacy ID หรือ Offer Name ขาดหาย' },
+                        { icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50', title: 'Smart Formatting', desc: 'ข้อมูล Rental Fee จะถูกแปลงเป็นทศนิยม 6 ตำแหน่ง (Billing Standard)' },
+                        { icon: Search, color: 'text-blue-500', bg: 'bg-blue-50', title: 'Multi-Format', desc: 'รองรับข้อมูลจาก Email, Excel (Tab-Separated) และระบบหลังบ้าน' }
+                    ].map((item, i) => (
+                        <div key={i} className="flex items-start gap-4 p-5 bg-white rounded-2xl border border-slate-200 shadow-sm transition-transform hover:-translate-y-1">
+                            <div className={`p-3 rounded-xl ${item.bg} ${item.color} shrink-0`}>
+                                <item.icon size={20} />
+                            </div>
+                            <div>
+                                <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-1">{item.title}</h4>
+                                <p className="text-[10px] text-slate-500 leading-relaxed font-bold opacity-70">{item.desc}</p>
+                            </div>
                         </div>
-                    </div>
-                    <div className="flex items-start gap-3 p-4 bg-white rounded-xl border border-slate-200">
-                        <CheckCircle className="text-emerald-500 shrink-0" size={18} />
-                        <div>
-                            <h4 className="text-xs font-bold text-slate-800 mb-1">Smart Formatting</h4>
-                            <p className="text-[10px] text-slate-500 leading-relaxed">ข้อมูล Rental Fee จะถูกแปลงเป็นทศนิยม 6 ตำแหน่งอัตโนมัติเพื่อให้ตรงตามมาตรฐานระบบ Billing</p>
-                        </div>
-                    </div>
-                    <div className="flex items-start gap-3 p-4 bg-white rounded-xl border border-slate-200">
-                        <Search className="text-blue-500 shrink-0" size={18} />
-                        <div>
-                            <h4 className="text-xs font-bold text-slate-800 mb-1">Auto-Detection</h4>
-                            <p className="text-[10px] text-slate-500 leading-relaxed">รองรับทั้งรูปแบบ "รหัสโปรโมชั่น:" และรูปแบบตาราง Tab-Separated จาก Excel/Email</p>
-                        </div>
-                    </div>
+                    ))}
                 </div>
             </main>
 
             {/* --- FOOTER --- */}
-            <footer className="relative overflow-hidden bg-gradient-to-r from-slate-800 via-gray-900 to-slate-800 py-12 text-center text-white mt-10">
-                <div className="absolute inset-0 opacity-10">
-                    <div className="absolute left-0 top-0 h-64 w-64 animate-pulse rounded-full bg-white blur-3xl"></div>
-                    <div className="absolute bottom-0 right-0 h-64 w-64 animate-pulse rounded-full bg-white blur-3xl"></div>
-                </div>
-                <div className="relative mb-4 flex justify-center gap-8 text-4xl font-black tracking-widest opacity-20">
-                    <span>EXTRACT</span>
-                    <span className="animate-pulse">DATA</span>
-                </div>
-                <div className="relative text-sm text-gray-400">
-                    <p>© {new Date().getFullYear()} Promotion Tools Hub @ Billone</p>
-                    <p className="text-[10px] opacity-50 mt-1 uppercase">Arm & Mos Professional Suite</p>
-                </div>
+            <footer className="py-12 text-center opacity-30 mt-10">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.4em]">Internal Engineering Unit • Billone Professional Suite</p>
             </footer>
+
+            <style jsx global>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                    height: 6px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #e2e8f0;
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #cbd5e1;
+                }
+                .animate-spin-slow {
+                    animation: spin 8s linear infinite;
+                }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 }
