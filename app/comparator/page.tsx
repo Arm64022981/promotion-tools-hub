@@ -3,10 +3,11 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { 
   FileText, CheckCircle, GitCompare, Trash2, Download, 
-  Upload, ArrowLeft 
+  Upload, ArrowLeft, Table as TableIcon 
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import Link from 'next/link';
+import * as XLSX from 'xlsx'; // นำเข้า Library สำหรับ Excel
 
 // --- CORE LOGIC ---
 interface DiffLine {
@@ -64,20 +65,44 @@ export default function ComparatorPage() {
         defaultName: string
     ) => {
         const file = event.target.files?.[0];
-        if (file && file.name.endsWith('.txt')) {
+        if (!file) return;
+
+        const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv');
+        const isTxt = file.name.endsWith('.txt');
+
+        if (isExcel || isTxt) {
             setFileName(file.name);
             const reader = new FileReader();
+
             reader.onload = (e) => {
-                const content = e.target?.result as string;
+                let content = '';
+                if (isExcel) {
+                    // Logic สำหรับอ่าน Excel
+                    const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    // แปลงเป็น CSV text เพื่อให้เปรียบเทียบทีละบรรทัดได้ง่าย
+                    content = XLSX.utils.sheet_to_csv(worksheet);
+                } else {
+                    // Logic สำหรับอ่าน TXT
+                    content = e.target?.result as string;
+                }
+                
                 setFileState({ file, content });
                 setResult(null);
             };
-            reader.readAsText(file, 'utf-8');
-        } else if (file) {
+
+            if (isExcel) {
+                reader.readAsArrayBuffer(file);
+            } else {
+                reader.readAsText(file, 'utf-8');
+            }
+        } else {
             Swal.fire({
                 icon: 'error',
                 title: 'Invalid File',
-                text: 'Please use .txt files only.',
+                text: 'Please use .txt or Excel (.xlsx, .xls, .csv) files.',
                 confirmButtonColor: '#1e293b',
             });
             setFileState(INITIAL_FILE_STATE);
@@ -85,6 +110,7 @@ export default function ComparatorPage() {
         }
     }, []);
 
+    // ... (handleCompare, handleClear, handleDownloadReport เหมือนเดิม)
     const handleCompare = useCallback(() => {
         if (!isReady) return;
         setStatus('Analyzing differences...');
@@ -125,14 +151,10 @@ export default function ComparatorPage() {
 
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-            {/* --- HEADER (Matching Prorate Page Style) --- */}
+            {/* --- HEADER --- */}
             <div className="bg-slate-800 py-14 px-6 relative shadow-xl overflow-hidden">
-                {/* Back to Hub - Absolute Position */}
                 <div className="absolute top-8 left-8">
-                    <Link 
-                        href="/mainocs" 
-                        className="inline-flex items-center gap-2 text-white/70 hover:text-white transition-colors group"
-                    >
+                    <Link href="/mainocs" className="inline-flex items-center gap-2 text-white/70 hover:text-white transition-colors group">
                         <div className="p-2 rounded-full bg-white/10 group-hover:bg-white/20 transition-all">
                             <ArrowLeft size={18} />
                         </div>
@@ -148,7 +170,7 @@ export default function ComparatorPage() {
                         File Comparator <span className="text-amber-400 font-light">Pro</span>
                     </h1>
                     <p className="opacity-70 mt-3 text-white font-light max-w-lg mx-auto">
-                        Line-by-Line Content Analysis: เปรียบเทียบความแตกต่างระหว่างไฟล์ .txt อย่างแม่นยำ
+                        รองรับไฟล์ .txt และ Excel (.xlsx, .xls, .csv) เปรียบเทียบข้อมูลแบบบรรทัดต่อบรรทัด
                     </p>
                 </div>
             </div>
@@ -163,17 +185,23 @@ export default function ComparatorPage() {
                         <div key={idx} className={`bg-white rounded-3xl p-8 border-2 border-dashed transition-all duration-300 relative ${item.state.file ? 'border-amber-400 shadow-lg bg-amber-50/10' : 'border-slate-200 hover:border-slate-300'}`}>
                             <div className="flex flex-col items-center text-center">
                                 <div className={`p-4 rounded-2xl mb-4 ${item.state.file ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
-                                    <FileText className="w-8 h-8" />
+                                    {item.name.match(/\.(xlsx|xls|csv)$/) ? <TableIcon className="w-8 h-8" /> : <FileText className="w-8 h-8" />}
                                 </div>
                                 <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2">{item.label}</h3>
                                 <p className="text-lg font-bold text-slate-700 mb-6 truncate max-w-full px-4">{item.name}</p>
                                 
-                                <input type="file" accept=".txt" onChange={(e) => handleFileChange(e, item.setState, item.setName, idx === 0 ? 'Document A' : 'Document B')} className="hidden" id={item.id} />
+                                <input 
+                                    type="file" 
+                                    accept=".txt,.xlsx,.xls,.csv" 
+                                    onChange={(e) => handleFileChange(e, item.setState, item.setName, idx === 0 ? 'Document A' : 'Document B')} 
+                                    className="hidden" 
+                                    id={item.id} 
+                                />
                                 <button 
                                     onClick={() => document.getElementById(item.id)?.click()} 
                                     className="px-8 py-3 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-900 transition-all flex items-center gap-2 shadow-md shadow-slate-200"
                                 >
-                                    <Upload size={16} /> {item.state.file ? 'Change File' : 'Select .txt File'}
+                                    <Upload size={16} /> {item.state.file ? 'Change File' : 'Select File (.txt/Excel)'}
                                 </button>
                             </div>
                             {item.state.file && <CheckCircle className="absolute top-6 right-6 w-6 h-6 text-emerald-500 animate-in zoom-in" />}
@@ -181,7 +209,7 @@ export default function ComparatorPage() {
                     ))}
                 </div>
 
-                {/* Action Bar */}
+                {/* Action Bar & Results (เหมือนเดิม) */}
                 <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-wrap items-center justify-between gap-4 sticky top-6 z-40 mb-10 px-8">
                     <div className="flex items-center gap-3">
                         <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${isReady ? 'bg-emerald-500' : 'bg-slate-300'}`} />
@@ -209,13 +237,14 @@ export default function ComparatorPage() {
                     </div>
                 </div>
 
-                {/* Results Table */}
+                {/* Results Table (เหมือนเดิม) */}
                 {result && (
                     <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-500">
-                        <div className="p-8 bg-slate-900 text-white flex justify-between items-center">
+                        {/* ... Table logic ... */}
+                         <div className="p-8 bg-slate-900 text-white flex justify-between items-center">
                             <div>
                                 <h2 className="text-xl font-black tracking-tight mb-1 uppercase">Comparison Summary</h2>
-                                <p className="text-slate-400 text-xs">Total lines analyzed: {result.maxLines}</p>
+                                <p className="text-slate-400 text-xs">Total rows/lines analyzed: {result.maxLines}</p>
                             </div>
                             <div className="text-center px-6 py-2 bg-white/10 rounded-2xl border border-white/10">
                                 <div className="text-[10px] uppercase font-black text-amber-400 tracking-widest">Discrepancies</div>
@@ -227,7 +256,7 @@ export default function ComparatorPage() {
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-slate-50 border-b border-slate-100 text-[11px] uppercase font-black text-slate-400 tracking-widest">
-                                        <th className="px-8 py-5 w-24">Line</th>
+                                        <th className="px-8 py-5 w-24">Row</th>
                                         <th className="px-8 py-5 border-l border-slate-100">{fileNameA}</th>
                                         <th className="px-8 py-5 border-l border-slate-100">{fileNameB}</th>
                                     </tr>

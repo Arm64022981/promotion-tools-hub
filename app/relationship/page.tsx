@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-// --- Sub-component สำหรับ Row เพื่อความลื่นไหล (Performance Optimization) ---
 const DataRow = memo(({ row, idx }: { row: any, idx: number }) => (
   <tr className="hover:bg-slate-50/50 transition-colors group border-b border-slate-50">
     <td className="px-6 py-4 font-mono text-[11px] text-slate-400 font-bold">{row['Primary Offering']}</td>
@@ -45,7 +44,6 @@ export default function RelationshipManagerSmooth() {
     { key: 'SO STATUS', label: 'SO Status', width: '170px' }
   ], []);
 
-  // --- Optimized File Upload ---
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -53,16 +51,14 @@ export default function RelationshipManagerSmooth() {
     const reader = new FileReader();
     reader.onload = (evt) => {
       const bstr = evt.target?.result;
-      // ใช้ worker: true เพื่อไม่ให้ UI ค้างเวลาอ่านไฟล์ใหญ่
       const wb = XLSX.read(bstr, { type: 'binary', cellDates: true });
       const data: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
       setRawData(data);
-      setFilters({}); // Reset filter เมื่อโหลดไฟล์ใหม่
+      setFilters({});
     };
     reader.readAsBinaryString(file);
   }, []);
 
-  // --- Memoized Filtered Data ---
   const filteredData = useMemo(() => {
     if (Object.keys(filters).length === 0) return rawData;
     return rawData.filter(row =>
@@ -72,7 +68,6 @@ export default function RelationshipManagerSmooth() {
     );
   }, [rawData, filters]);
 
-  // --- Optimized Unique Values Calculation ---
   const columnUniqueValues = useMemo(() => {
     const uniqueMap: { [key: string]: string[] } = {};
     if (rawData.length === 0) return uniqueMap;
@@ -104,7 +99,6 @@ export default function RelationshipManagerSmooth() {
   const handleExport = useCallback(() => {
     const wb = XLSX.utils.book_new();
 
-    // Sheet: Attached (Main)
     const attachedData = filteredData.map(row => ({
       'Depended By ID': row['Primary Offering'],
       'Depended By Name': row['PO'],
@@ -122,7 +116,6 @@ export default function RelationshipManagerSmooth() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased selection:bg-emerald-100">
-      {/* Header - Glassmorphism style for smoothness */}
       <header className="bg-slate-800/95 backdrop-blur-md px-8 py-4 flex justify-between items-center sticky top-0 z-50 shadow-lg border-b border-slate-700">
         <div className="flex items-center gap-5">
           <Link href="/mainocs" className="p-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-slate-300 transition-all active:scale-95">
@@ -153,7 +146,6 @@ export default function RelationshipManagerSmooth() {
       </header>
 
       <main className="p-6 max-w-[1600px] mx-auto">
-        {/* Stats Section with subtle entry animation */}
         <div className="flex gap-4 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
           <div className="bg-white border border-slate-200 p-4 rounded-2xl flex-1 shadow-sm flex items-center gap-4">
             <div className={`p-2.5 rounded-xl transition-colors ${rawData.length > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-300'}`}>
@@ -172,7 +164,6 @@ export default function RelationshipManagerSmooth() {
           </div>
         </div>
 
-        {/* Optimized Table Section */}
         <div className="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden transition-all">
           <div className="overflow-x-auto custom-scrollbar max-h-[calc(100vh-250px)]">
             <table className="w-full text-left border-collapse table-fixed min-w-[1100px]">
@@ -190,7 +181,6 @@ export default function RelationshipManagerSmooth() {
                         </button>
                       </div>
 
-                      {/* Smooth Filter Dropdown */}
                       {activeFilterDropdown === col.key && (
                         <div className="absolute top-full left-0 mt-2 w-64 bg-white shadow-2xl rounded-2xl border border-slate-200 p-4 z-50 animate-in zoom-in-95 duration-200">
                           <div className="relative mb-3">
@@ -219,7 +209,6 @@ export default function RelationshipManagerSmooth() {
               </thead>
               <tbody>
                 {filteredData.length > 0 ? (
-                  // แสดงผลเฉพาะ 100 แถวแรกก่อนเพื่อความเร็ว (หรือใช้ Pagination/Infinite Scroll ต่อไป)
                   filteredData.slice(0, 200).map((row, idx) => (
                     <DataRow key={idx} row={row} idx={idx} />
                   ))
@@ -239,14 +228,12 @@ export default function RelationshipManagerSmooth() {
         </div>
       </main>
 
-      {/* Optimized CSS */}
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
         
-        /* เพิ่มความเนียนเวลาเปลี่ยนสถานะหรือ Hover */
         tr { transition: background-color 0.15s ease-out; }
         .animate-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn {
