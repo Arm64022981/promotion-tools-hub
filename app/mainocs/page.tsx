@@ -13,7 +13,6 @@ type ToolCardProps = {
   color: 'blue' | 'emerald' | 'amber' | 'purple';
 };
 
-// --- DATA FOR TOOL CARDS ---
 const tools: ToolCardProps[] = [
   {
     title: 'Promotion Data Extractor',
@@ -55,6 +54,14 @@ const tools: ToolCardProps[] = [
     icon: Shuffle,
     color: 'purple'
   },
+  {
+    title: 'Relationship Manager',
+    titleThai: 'ระบบจัดการความสัมพันธ์ข้อมูล',
+    description: 'เชื่อมโยงข้อมูลระหว่างไฟล์โดยอัตโนมัติ (Smart Mapping) พร้อมตรวจสอบสถานะอนุมัติและจัดการโครงสร้าง 3-Sheets ในคลิกเดียว',
+    href: '/relationship',
+    icon: Shuffle,
+    color: 'emerald' 
+},
 ];
 
 // --- COMPONENT: ToolCard ---
@@ -81,25 +88,14 @@ const ToolCard = ({ title, titleThai, description, href, icon: Icon, color }: To
     <div 
       onClick={handleClick}
       className={`group relative flex flex-col overflow-hidden rounded-2xl border-2 ${colors[color]} bg-white p-6 shadow-lg transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 cursor-pointer`}>
-      {/* Icon */}
       <div className={`mb-4 inline-flex h-14 w-14 items-center justify-center rounded-xl ${iconColors[color]} shadow-md transition-transform duration-300 group-hover:scale-110`}>
         <Icon className="text-white" strokeWidth={2} />
       </div>
-
-      {/* Content */}
       <div className="flex-1">
-        <h3 className="mb-1 text-xl font-bold text-gray-800">
-          {title}
-        </h3>
-        <p className="mb-3 text-sm font-medium text-gray-500">
-          {titleThai}
-        </p>
-        <p className="text-sm leading-relaxed text-gray-600">
-          {description}
-        </p>
+        <h3 className="mb-1 text-xl font-bold text-gray-800">{title}</h3>
+        <p className="mb-3 text-sm font-medium text-gray-500">{titleThai}</p>
+        <p className="text-sm leading-relaxed text-gray-600">{description}</p>
       </div>
-
-      {/* CTA */}
       <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-slate-700 transition-colors group-hover:text-slate-900">
         <span>Enter Tool</span>
         <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
@@ -112,42 +108,49 @@ const ToolCard = ({ title, titleThai, description, href, icon: Icon, color }: To
 export default function HomePage() {
   return (
     <div className="relative">
+      <style jsx>{`
+        @keyframes marquee {
+          0% { transform: translateX(100%); }
+          100% { transform: translateX(-100%); }
+        }
+        .animate-marquee {
+          display: inline-block;
+          animation: marquee 20s linear infinite;
+        }
+        .marquee-container:hover .animate-marquee {
+          animation-play-state: paused;
+        }
+      `}</style>
+
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 text-gray-800">
         {/* Header Banner */}
         <div className="relative overflow-hidden bg-gradient-to-r from-slate-700 via-gray-800 to-slate-700 py-16 px-6 text-center shadow-xl">
-          {/* Badge */}
           <div className="inline-block rounded-full border-2 border-gray-300 bg-white/20 px-4 py-1 text-sm font-medium text-white backdrop-blur-sm mb-4">
             <Award className="mr-1 inline h-4 w-4" />
             Professional Suite
           </div>
 
-          {/* Main Title */}
           <h1 className="mb-3 text-5xl font-extrabold tracking-tight text-white drop-shadow-lg">
             Promotion Tools Hub @ Billone
           </h1>
 
-          {/* Subtitle */}
-          <p className="text-lg font-light text-gray-200">
-            ศูนย์รวมเครื่องมือสำหรับการจัดการข้อมูลโปรโมชันและระบบคัดกรองข้อมูล
-          </p>
+          {/* Subtitle with Marquee Effect */}
+          <div className="marquee-container mx-auto mt-2 max-w-xl overflow-hidden">
+            <p className="animate-marquee whitespace-nowrap text-lg font-light text-gray-200">
+              ศูนย์รวมเครื่องมือสำหรับการจัดการข้อมูลโปรโมชันและระบบคัดกรองข้อมูล
+            </p>
+          </div>
 
-          {/* Decorative Line */}
           <div className="mx-auto mt-6 h-1 w-32 rounded-full bg-white/40"></div>
         </div>
 
         {/* Main Content */}
         <div className="mx-auto max-w-7xl px-6 py-16">
-          {/* Tools Section */}
           <div className="mb-12 text-center">
-            <h2 className="mb-2 text-3xl font-bold text-gray-800">
-              Available Tools
-            </h2>
-            <p className="text-gray-600">
-              เลือกเครื่องมือที่คุณต้องการใช้งานเพื่อเพิ่มประสิทธิภาพการจัดการข้อมูล
-            </p>
+            <h2 className="mb-2 text-3xl font-bold text-gray-800">Available Tools</h2>
+            <p className="text-gray-600">เลือกเครื่องมือที่คุณต้องการใช้งานเพื่อเพิ่มประสิทธิภาพการจัดการข้อมูล</p>
           </div>
 
-          {/* Grid Layout - ปรับให้รองรับ 5 เมนูอย่างสวยงาม */}
           <div className="grid gap-8 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2">
             {tools.map((tool) => (
               <ToolCard key={tool.href} {...tool} />
@@ -161,15 +164,9 @@ export default function HomePage() {
             <span className="animate-pulse">OCS</span>
             <span className="animate-pulse" style={{ animationDelay: '0.5s' }}>TEAM GANG GANG</span>
           </div>
-
           <div className="relative space-y-2 text-sm text-gray-300">
-            <p className="font-semibold">
-              © {new Date().getFullYear()} Promotion Tools Hub
-            </p>
-            <p className="text-xs">
-              ARM@MOS BILLONE<br />
-              INTERNAL ANALYTICS SYSTEMS
-            </p>
+            <p className="font-semibold">© {new Date().getFullYear()} Promotion Tools Hub</p>
+            <p className="text-xs">ARM@MOS BILLONE<br />INTERNAL ANALYTICS SYSTEMS</p>
           </div>
         </footer>
       </div>

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 export default function ProrateCalculatorPage() {
-    // --- States สำหรับ Unit Prorate ---
+    // States สำหรับ Unit Prorate
     const [totalUnit, setTotalUnit] = useState('');
     const [totalDays, setTotalDays] = useState('31');
     const [currentDay, setCurrentDay] = useState('1');
@@ -16,7 +16,7 @@ export default function ProrateCalculatorPage() {
     const [finalCalculationDisplay, setFinalCalculationDisplay] = useState('N/A');
     const [hasCalculated, setHasCalculated] = useState(false);
 
-    // --- States สำหรับ Price Prorate ---
+    // States สำหรับ Price Prorate
     const [priceBase, setPriceBase] = useState('');
     const [priceTotalDays, setPriceTotalDays] = useState('31');
     const [priceStartDay, setPriceStartDay] = useState('1'); 
@@ -24,7 +24,6 @@ export default function ProrateCalculatorPage() {
     const [priceStepDisplay, setPriceStepDisplay] = useState('N/A');
     const [hasCalculatedPrice, setHasCalculatedPrice] = useState(false);
 
-    // ฟังก์ชันคำนวณ
     interface ProrateResult {
         daysRemaining: number;
         result: number;

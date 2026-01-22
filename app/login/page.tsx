@@ -9,17 +9,16 @@ export default function LoginPage() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
 
-    // ข้อมูลรับรองความถูกต้อง
+    
     const CORRECT_USERNAME = 'billoneteam';
     const CORRECT_PASSWORD = 'billone12341';
 
-    // Handle form submission (Mock Authentication)
-    const handleSubmit = async (e: React.FormEvent) => { // ใช้ async/await สำหรับ SweetAlert2
+  
+    const handleSubmit = async (e: React.FormEvent) => { 
         e.preventDefault();
 
         console.log(`Login attempt with Username: ${username}`);
 
-        // ตรวจสอบความถูกต้องของชื่อผู้ใช้และรหัสผ่าน
         if (username === CORRECT_USERNAME && password === CORRECT_PASSWORD) {
             await Swal.fire({
                 title: 'เข้าสู่ระบบสำเร็จ!',
