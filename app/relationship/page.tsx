@@ -98,21 +98,27 @@ export default function RelationshipManagerSmooth() {
 
   const handleExport = useCallback(() => {
     const wb = XLSX.utils.book_new();
+    
+    const primaryId = filters['Primary Offering']?.[0] ||
+      (filteredData.length > 0 ? filteredData[0]['Primary Offering'] : 'Data');
+
+    const fileName = `ALLRelations_${primaryId}.xlsx`;
 
     const attachedData = filteredData.map(row => ({
       'Depended By ID': row['Primary Offering'],
       'Depended By Name': row['PO'],
       'Depend Id': row['Attached Offering'],
       'Depend Name': row['SO'],
-      'Relation Type': 'O'
+      'Relation Type': 'o'
     }));
 
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Master Id', 'Master Name', 'Slave Id', 'Slave Name', 'Relation Type', 'Control Flag']]), "Dependent");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(attachedData), "Attached");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Offering Id', 'Offering Name', 'Replace Offering Id', 'Replace Offering Name', 'Replace Type', 'Replace Rule', 'Effect Mode', 'Contract Continue', 'Plan', 'Replace Mode']]), "Replacement");
 
-    XLSX.writeFile(wb, `Export_${new Date().toISOString().split('T')[0]}.xlsx`);
-  }, [filteredData]);
+    // 2. ใช้ fileName ที่เราตั้งไว้
+    XLSX.writeFile(wb, fileName);
+  }, [filteredData, filters]); // เพิ่ม filters เข้าไปใน dependency array ด้วย
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased selection:bg-emerald-100">
