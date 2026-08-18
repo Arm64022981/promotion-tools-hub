@@ -1,5 +1,23 @@
-// Extractor utility functions (pulled from page.tsx for unit testing)
-export type ExtractedData = Record<string, string>;
+// Extractor utility functions for Promotion Data Extractor
+
+export const OUTPUT_COLUMNS = [
+    '⚠️ ตรวจสอบ?', 'Change log', 'Legacy ID', 'Offering Name', 'Notification Name (Eng)',
+    'Notification Name (Thai)', 'Remark', 'Cycle Type', 'Cycle Length',
+    'Prorate RC & FU', 'Cycle shift', 'RC failed need Suspend ?',
+    'Retry RC times', 'Action after max retry', 'Rental Fee without tax',
+    'Bonus', 'Voice Tariff', 'SMS Tariff', 'MMS Tariff', 'GPRS Tariff',
+    'Independent Sales', 'Type', 'Free unit type Legacy', 'Free unit type OCS',
+    'Free unit value', 'Balance ID', 'SCG config existing',
+    'FU ID', 'Speed', 'Offer ID', 'SpeedTemplate', 'Deploy Date',
+    'Deploy State', 'Sale Start Date'
+] as const;
+
+export type ColKey = typeof OUTPUT_COLUMNS[number];
+export type ExtractedData = Partial<Record<ColKey, string>>;
+
+export const EXPORT_COLUMNS = OUTPUT_COLUMNS.filter(
+    col => col !== '⚠️ ตรวจสอบ?' && col !== 'Change log'
+);
 
 const KNOWN_CYCLE_TYPES = new Set([
     '1day', '1days', '15day', '15days', '186days', '2days', '217days', '24hours',
@@ -7,19 +25,34 @@ const KNOWN_CYCLE_TYPES = new Set([
     '45days', '7days', '8days', '90days', '93days', '99days',
     'Bill Cycle', 'Life Time', '31 calendar_day'
 ]);
+
 const normalizeCycleType = (s: string) => s.replace(/[\s_]/g, '').toLowerCase();
+
 const cycleTypeRegex = new RegExp(
     [...KNOWN_CYCLE_TYPES].sort((a, b) => b.length - a.length)
         .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '[\\s_]*'))
         .join('|'), 'i'
 );
+
 const KNOWN_RETRY_TIMES = new Set(['3', '7', '99', '999', '9999']);
 const KNOWN_CYCLE_SHIFTS = new Set(['Shift', 'Not Shift']);
+
 const DEPLOY_STATE_MAP: Record<string, string> = {
-    'in-progress': 'In-progress', 'deploy': 'Deploy', 'approved': 'Approved',
-    'draft': 'Draft', 'inactive': 'Inactive', 'active': 'Active',
+    'in-progress': 'In-progress',
+    'deploy': 'Deploy',
+    'approved': 'Approved',
+    'draft': 'Draft',
+    'inactive': 'Inactive',
+    'active': 'Active',
+    'อนุมัติการใช้งาน': 'Approved',
+    'อนุมัติแล้ว': 'Approved',
+    'อนุมัติ': 'Approved',
+    'ใช้งาน': 'Active',
+    'ร่าง': 'Draft',
 };
+
 const ACTION_AFTER_RETRY_PATTERNS = ['Cancel offer', 'Suspend', 'Terminate', 'Grace period', 'None'];
+
 const THAI_MONTH_SHORT: Record<string, string> = {
     'ม.ค.': '01', 'ก.พ.': '02', 'มี.ค.': '03', 'เม.ย.': '04',
     'พ.ค.': '05', 'มิ.ย.': '06', 'ก.ค.': '07', 'ส.ค.': '08',
@@ -32,24 +65,40 @@ const THAI_MONTH_SHORT: Record<string, string> = {
 export function parseThaiDate(raw: string): string {
     if (!raw) return '';
     const t = raw.trim();
-    if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(t)) return t;
+
+    // Pattern 1: DD-MM-YYYY or DD/MM/YYYY (numeric format)
+    const numMatch = t.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (numMatch) {
+        const day = numMatch[1].padStart(2, '0');
+        const month = numMatch[2].padStart(2, '0');
+        let year = parseInt(numMatch[3]);
+        if (year > 2400) year -= 543;
+        return `${day}/${month}/${year}`;
+    }
+
+    // Pattern 2: DD Month Year (Thai text format)
     const m = t.match(/(\d{1,2})\s+([ก-๙a-zA-Z.]+)\s+(\d{2,4})/);
     if (m) {
         const day = m[1].padStart(2, '0');
-        const monthKey = Object.keys(THAI_MONTH_SHORT).find(k => m[2].startsWith(k.replace('.', '')));
+        const monthClean = m[2].replace(/\./g, '').trim();
+        const monthKey = Object.keys(THAI_MONTH_SHORT).find(k => {
+            const kClean = k.replace(/\./g, '');
+            return monthClean.startsWith(kClean) || kClean.startsWith(monthClean);
+        });
         const month = monthKey ? THAI_MONTH_SHORT[monthKey] : '??';
         let year = parseInt(m[3]);
         if (year > 2400) year -= 543;
         if (year < 100) year += 2500 - 543;
         return `${day}/${month}/${year}`;
     }
-    return t;
+    return t.replace(/-/g, '/');
 }
 
 const findFn = (textChunk: string, regex: RegExp) => (textChunk.match(regex) || [])[1]?.trim() || '';
 
 export function extractKeyValueData(textChunk: string): ExtractedData {
     const details: ExtractedData = {};
+
     const notifLine = textChunk.match(/Notification Name \(Eng\)\s*:\s*([^\r\n]*)/m);
     if (notifLine) {
         const parts = notifLine[1].split(/Notification Name \(Th\)\s*:/);
@@ -57,25 +106,59 @@ export function extractKeyValueData(textChunk: string): ExtractedData {
         if (parts[1]) details['Notification Name (Thai)'] = parts[1]?.trim();
     }
     if (!details['Notification Name (Thai)']) details['Notification Name (Thai)'] = findFn(textChunk, /Notification Name \(Th\)\s*:\s*([^\r\n]*)/m);
-    details['Legacy ID'] = findFn(textChunk, /รหัสโปรโมชั่น\s*:\s*(\d{8})/m);
+
+    details['Legacy ID'] = findFn(textChunk, /รหัสโปรโมชั่น\s*:\s*(\d{8})/m) || findFn(textChunk, /โปรโมชั่น\s*(\d{8})\s*:/m);
     details['Offering Name'] = findFn(textChunk, /ชื่อโปรใน OCS\s*:\s*([^\r\n]*)/m);
     details['Change log'] = findFn(textChunk, /Change\s*[Ll]og\s*:\s*([^\r\n]*)/m);
+
     const fee = findFn(textChunk, /ค่าบริการ \(บาท\/ไม่รวม VAT\)\s*:\s*([\d.]+)/m);
-    if (parseFloat(fee) > 0) details['Rental Fee without tax'] = fee;
+    if (fee && !isNaN(parseFloat(fee))) {
+        details['Rental Fee without tax'] = parseFloat(fee).toFixed(6);
+    }
+
     const periodText = findFn(textChunk, /ระยะเวลาใช้บริการ \(Period\)\s*:\s*([\s\S]*?)(?=\s*\*|Cycle Length|$)/);
-    if (periodText) { const match = periodText.match(cycleTypeRegex); if (match) details['Cycle Type'] = match[0]; }
+    if (periodText) {
+        const match = periodText.match(cycleTypeRegex);
+        if (match) details['Cycle Type'] = match[0];
+    }
+
     const lengthText = findFn(textChunk, /Cycle Length\s*:\s*([^\r\n]*)/m);
-    if (/^(\d+\s*รอบบิล|\d+\s*times?|Renew)$/i.test(lengthText)) details['Cycle Length'] = lengthText.replace('รอบบิล', 'times');
+    if (/^(\d+\s*รอบบิล|\d+\s*times?|Renew)$/i.test(lengthText)) {
+        details['Cycle Length'] = lengthText.replace('รอบบิล', 'times');
+    }
+
     details['Prorate RC & FU'] = findFn(textChunk, /เกณฑ์การคิดค่าบริการ\s*:\s*(Prorate|Not Prorate)/m);
-    details['RC failed need Suspend ?'] = findFn(textChunk, /RC failed need Suspend \?\s*:\s*(Suspend)/m);
+
+    // Case-insensitive Suspend check handling newlines
+    const suspendMatch = textChunk.match(/RC failed need Suspend \?\s*:\s*([^\r\n]*)/i);
+    if (suspendMatch && suspendMatch[1].trim()) {
+        const val = suspendMatch[1].trim();
+        details['RC failed need Suspend ?'] = /suspend/i.test(val) ? 'Suspend' : val;
+    } else if (/RC failed need Suspend \?[\s\S]*?\bsuspend\b/i.test(textChunk)) {
+        details['RC failed need Suspend ?'] = 'Suspend';
+    }
+
     details['Retry RC times'] = findFn(textChunk, /Retry RC times\s*:\s*(3|7|99|999|9999)\b/m);
     details['Cycle shift'] = findFn(textChunk, /ระยะเวลาใช้บริการในรอบบิลต่อไป\s*:\s*(Shift|Not Shift)/m);
+
     const actionText = findFn(textChunk, /Action after max retry\s*:\s*([^\r\n]*)/m);
-    if (actionText) { const found = ACTION_AFTER_RETRY_PATTERNS.find(a => actionText.toLowerCase().includes(a.toLowerCase())); details['Action after max retry'] = found || actionText; }
+    if (actionText) {
+        if (actionText === 'ค่าว่าง' || actionText.toLowerCase() === 'none') {
+            details['Action after max retry'] = 'None';
+        } else {
+            const found = ACTION_AFTER_RETRY_PATTERNS.find(a => actionText.toLowerCase().includes(a.toLowerCase()));
+            details['Action after max retry'] = found || actionText;
+        }
+    }
+
     details['Sale Start Date'] = parseThaiDate(findFn(textChunk, /วันที่เริ่มจำหน่าย \(Sale Start Date\)\s*:\s*([^\r\n]*)/m));
     details['Deploy Date'] = parseThaiDate(findFn(textChunk, /วันเริ่มต้นใช้แพ็กเกจ \(Effective Date\)\s*:\s*([^\r\n]*)/m));
+
     const statusText = findFn(textChunk, /สถานะโปรโมชั่น\s*:\s*([^\r\n]*)/m);
-    if (statusText) details['Deploy State'] = DEPLOY_STATE_MAP[statusText.toLowerCase().trim()] || statusText;
+    if (statusText) {
+        details['Deploy State'] = DEPLOY_STATE_MAP[statusText.toLowerCase().trim()] || DEPLOY_STATE_MAP[statusText.trim()] || statusText;
+    }
+
     details['Voice Tariff'] = findFn(textChunk, /Voice Tariff\s*:\s*([^\r\n]*)/m);
     details['SMS Tariff'] = findFn(textChunk, /SMS Tariff\s*:\s*([^\r\n]*)/m);
     details['MMS Tariff'] = findFn(textChunk, /MMS Tariff\s*:\s*([^\r\n]*)/m);
@@ -86,8 +169,13 @@ export function extractKeyValueData(textChunk: string): ExtractedData {
     details['SCG config existing'] = findFn(textChunk, /SCG\s*config\s*existing\s*:\s*([^\r\n]*)/m);
     details['Bonus'] = findFn(textChunk, /Bonus\s*:\s*([YN])/m);
     details['Independent Sales'] = findFn(textChunk, /Independent Sales\s*:\s*([YN])/m);
-    const speedMatch = findFn(textChunk, /โปรโมชั่น.*?เน็ต.*?\s([\d.]+Mbps)/m);
-    if (speedMatch) { details['Speed'] = `เน็ตไม่จำกัด ${speedMatch}`; details['SpeedTemplate'] = speedMatch; }
+
+    const speedMatch = findFn(textChunk, /โปรโมชั่น.*?เน็ต.*?\s([\d.]+Mbps)/m) || findFn(textChunk, /(\d+\s*Mbps)/m);
+    if (speedMatch) {
+        details['Speed'] = `เน็ตไม่จำกัด ${speedMatch}`;
+        details['SpeedTemplate'] = speedMatch;
+    }
+
     return details;
 }
 
@@ -99,14 +187,15 @@ export function extractTabSeparatedData(textChunk: string): ExtractedData {
     details['Offering Name'] = fields.find(f => f.startsWith('SO_')) || '';
     details['Notification Name (Eng)'] = fields[3] || '';
     details['Notification Name (Thai)'] = fields[4] || '';
+
     fields.forEach(field => {
         if (/^(\d+\s*times?|Renew)$/i.test(field) && !details['Cycle Length']) details['Cycle Length'] = field;
         else if (KNOWN_RETRY_TIMES.has(field) && !details['Retry RC times']) details['Retry RC times'] = field;
         else if (KNOWN_CYCLE_SHIFTS.has(field) && !details['Cycle shift']) details['Cycle shift'] = field;
         else if (field === 'Prorate' || field === 'Not Prorate') details['Prorate RC & FU'] = field;
-        else if (field === 'Suspend' && !details['RC failed need Suspend ?']) details['RC failed need Suspend ?'] = field;
+        else if (/suspend/i.test(field) && !details['RC failed need Suspend ?']) details['RC failed need Suspend ?'] = 'Suspend';
         else if (ACTION_AFTER_RETRY_PATTERNS.includes(field) && !details['Action after max retry']) details['Action after max retry'] = field;
-        else if (/^\d+(\.\d+)?$/.test(field) && !details['Rental Fee without tax']) { const fee = parseFloat(field); if (fee > 0) details['Rental Fee without tax'] = field; }
+        else if (/^\d+(\.\d+)?$/.test(field) && !details['Rental Fee without tax']) { const fee = parseFloat(field); if (fee >= 0) details['Rental Fee without tax'] = fee.toFixed(6); }
         else if (/^(\dG\/?)+$/.test(field)) details['Type'] = field;
         else if (/Bytes/.test(field)) { details['Free unit type Legacy'] = 'DATA VOLUME'; details['Free unit type OCS'] = 'DATA VOLUME'; details['Free unit value'] = field; }
         else if (/Baht \//.test(field)) { if (/Voice/i.test(field)) details['Voice Tariff'] = field; else if (/SMS/i.test(field)) details['SMS Tariff'] = field; else if (/MMS/i.test(field)) details['MMS Tariff'] = field; else details['GPRS Tariff'] = field; }
@@ -120,27 +209,67 @@ export function extractTabSeparatedData(textChunk: string): ExtractedData {
         else if (/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}/.test(field)) { const d = parseThaiDate(field); if (!details['Deploy Date']) details['Deploy Date'] = d; else if (!details['Sale Start Date']) details['Sale Start Date'] = d; }
         else if (/in-progress|deploy|approved|draft|inactive|active/i.test(field)) details['Deploy State'] = DEPLOY_STATE_MAP[field.toLowerCase().trim()] || field;
     });
+
     return details;
 }
 
 export function masterExtractor(textChunk: string): ExtractedData {
     let details: ExtractedData = {};
-    if (/^\d{8}:\s*New/.test(textChunk)) details = extractTabSeparatedData(textChunk);
-    else if (/รหัสโปรโมชั่น\s*:|ค่าบริการ \(บาท\/ไม่รวม VAT\)/.test(textChunk)) details = extractKeyValueData(textChunk);
+
+    if (/^\d{8}:\s*New/.test(textChunk)) {
+        details = extractTabSeparatedData(textChunk);
+    } else {
+        details = extractKeyValueData(textChunk);
+    }
+
     if (!details['Cycle Type']) {
         const searchable = `${details['Offering Name'] || ''} ${details['Notification Name (Eng)'] || ''} ${textChunk}`;
         const match = searchable.match(cycleTypeRegex);
-        if (match) { const nm = normalizeCycleType(match[0]); details['Cycle Type'] = [...KNOWN_CYCLE_TYPES].find(k => normalizeCycleType(k) === nm) || match[0]; }
+        if (match) {
+            const nm = normalizeCycleType(match[0]);
+            details['Cycle Type'] = [...KNOWN_CYCLE_TYPES].find(k => normalizeCycleType(k) === nm) || match[0];
+        }
     }
-    let speedValue: string | null = null;
-    const rsm = textChunk.match(/Remark\s*:\s*Speed.*?\s(\d+)\s*Mbps/i);
-    if (rsm?.[1]) speedValue = rsm[1];
-    if (!speedValue && details['Offering Name']) { const ns = details['Offering Name'].match(/_(\d+)(M|Mbps)/i); if (ns?.[1]) speedValue = ns[1]; }
-    if (speedValue) { const s = `3G/4G DATA VOLUME ${speedValue}M`; details['Free unit type OCS'] = s; details['Free unit type Legacy'] = s; }
-    if (!details['Free unit type OCS'] && /โทรฟรี|Voice|เสียง/i.test(textChunk)) { details['Free unit type OCS'] = 'VOICE'; details['Free unit type Legacy'] = 'VOICE'; }
+
+    // Extract Data Volume (e.g., 50GB, 30GB)
+    const gbMatch = textChunk.match(/(\d+)\s*(GB|MB)\b/i);
+    if (gbMatch) {
+        const unitVal = `${gbMatch[1]}${gbMatch[2].toUpperCase()}`;
+        details['Free unit value'] = details['Free unit value'] || unitVal;
+        details['Free unit type OCS'] = `3G/4G DATA VOLUME ${unitVal}`;
+        details['Free unit type Legacy'] = `3G/4G DATA VOLUME ${unitVal}`;
+    } else {
+        let speedValue: string | null = null;
+        const rsm = textChunk.match(/Remark\s*:\s*Speed.*?\s(\d+)\s*Mbps/i);
+        if (rsm?.[1]) speedValue = rsm[1];
+        if (!speedValue && details['Offering Name']) {
+            const ns = details['Offering Name'].match(/_(\d+)(M|Mbps)/i);
+            if (ns?.[1]) speedValue = ns[1];
+        }
+        if (speedValue) {
+            const s = `3G/4G DATA VOLUME ${speedValue}M`;
+            details['Free unit type OCS'] = details['Free unit type OCS'] || s;
+            details['Free unit type Legacy'] = details['Free unit type Legacy'] || s;
+        }
+    }
+
+    if (!details['Free unit type OCS'] && /โทรฟรี|Voice|เสียง/i.test(textChunk)) {
+        details['Free unit type OCS'] = 'VOICE';
+        details['Free unit type Legacy'] = 'VOICE';
+    }
+
     details['Remark'] = details['Remark'] || 'Pre-collection';
-    if (details['Rental Fee without tax']) { const f = parseFloat(details['Rental Fee without tax']); if (!isNaN(f)) details['Rental Fee without tax'] = f.toFixed(6); }
-    const missing = ['Legacy ID', 'Offering Name'].filter(f => !(details[f] || '').trim());
+
+    if (details['Rental Fee without tax']) {
+        const f = parseFloat(details['Rental Fee without tax']);
+        if (!isNaN(f)) details['Rental Fee without tax'] = f.toFixed(6);
+    }
+
+    const missing: ColKey[] = [];
+    if (!details['Legacy ID']?.trim()) missing.push('Legacy ID');
+    if (!details['Offering Name']?.trim()) missing.push('Offering Name');
+    if (details['Deploy Date']?.includes('??') || details['Sale Start Date']?.includes('??')) missing.push('Deploy Date');
+
     details['⚠️ ตรวจสอบ?'] = missing.length > 0 ? 'ควรตรวจสอบ' : '';
     return details;
 }
