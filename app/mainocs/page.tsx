@@ -1,6 +1,6 @@
 "use client";
 
-import { Calculator, FileText, GitCompare, ArrowUpRight, Shuffle, Hash, Sparkles, CheckSquare, X, Plus, Trash2, Flame, Copy, Check, ExternalLink, Search } from 'lucide-react';
+import { Calculator, FileText, GitCompare, ArrowUpRight, Shuffle, Hash, Sparkles, CheckSquare, X, Plus, Trash2, Bot, Copy, Check, ExternalLink, Search, Cpu, Radar, Wifi } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
 type ToolCardProps = {
@@ -108,23 +108,38 @@ const ToolCard = ({ title, titleThai, description, href, icon: Icon, index, tag 
   return (
     <a
       href={href}
-      className="tool-card group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] p-8 backdrop-blur-xl transition-all duration-500 hover:-translate-y-2 hover:bg-white/[0.05] hover:shadow-[0_8px_32px_rgba(52,211,153,0.15)]"
+      className="tool-card unit-card group relative flex flex-col justify-between overflow-hidden border border-emerald-500/[0.12] bg-white/[0.02] p-8 backdrop-blur-xl transition-all duration-500 hover:-translate-y-1.5 hover:bg-white/[0.05] hover:shadow-[0_8px_32px_rgba(52,211,153,0.18)]"
       style={{ animationDelay: `${index * 100}ms` }}
     >
+      {/* corner brackets — HUD targeting frame, appears on hover */}
+      <span className="corner-bracket corner-tl" />
+      <span className="corner-bracket corner-tr" />
+      <span className="corner-bracket corner-bl" />
+      <span className="corner-bracket corner-br" />
+
       <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-emerald-500/20 blur-[80px] transition-all duration-700 group-hover:bg-emerald-400/40" />
 
-      <span className="absolute bottom-4 right-6 font-mono text-[8rem] font-black leading-none text-white/[0.02] transition-colors duration-500 group-hover:text-emerald-500/[0.05] select-none pointer-events-none">
-        {String(index).padStart(2, '0')}
-      </span>
+      {/* faint circuit trace running through the card */}
+      <svg className="pointer-events-none absolute bottom-0 right-0 h-24 w-24 opacity-[0.06] transition-opacity duration-500 group-hover:opacity-20" viewBox="0 0 100 100">
+        <path d="M100 20 H60 V50 H30 V100" stroke="#34d399" strokeWidth="2" fill="none" />
+        <circle cx="60" cy="50" r="3" fill="#34d399" />
+        <circle cx="30" cy="100" r="3" fill="#34d399" />
+      </svg>
 
       <div className="relative z-10">
         <div className="mb-6 flex items-start justify-between">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 shadow-inner transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3">
-            <Icon size={24} strokeWidth={1.5} />
+          <div className="hex-frame flex h-14 w-14 items-center justify-center text-emerald-400 shadow-inner transition-transform duration-500 group-hover:scale-110">
+            <Icon size={22} strokeWidth={1.5} />
           </div>
-          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 font-mono text-[10px] font-bold tracking-[0.2em] text-emerald-300 backdrop-blur-md">
+          <span className="rounded-sm border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-mono text-[10px] font-bold tracking-[0.2em] text-emerald-300 backdrop-blur-md">
             {tag}
           </span>
+        </div>
+
+        <div className="mb-2 flex items-center gap-2 font-mono text-[10px] font-bold tracking-[0.25em] text-emerald-500/40">
+          <span>UNIT.{String(index).padStart(2, '0')}</span>
+          <span className="h-px flex-1 bg-emerald-500/20" />
+          <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />READY</span>
         </div>
 
         <h3 className="mb-2 text-2xl font-bold tracking-tight text-white/90 transition-colors group-hover:text-white">
@@ -139,11 +154,11 @@ const ToolCard = ({ title, titleThai, description, href, icon: Icon, index, tag 
       <div className="relative z-10 mt-8 flex items-center justify-between">
         <div className="flex items-center gap-2 font-mono text-xs font-bold tracking-widest text-emerald-500/50 transition-colors duration-300 group-hover:text-emerald-400">
           <span className="relative">
-            LAUNCH TOOL
+            EXECUTE
             <span className="absolute -bottom-1 left-0 h-px w-0 bg-emerald-400 transition-all duration-500 group-hover:w-full" />
           </span>
         </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-white/40 transition-all duration-300 group-hover:bg-emerald-500 group-hover:text-white">
+        <div className="flex h-8 w-8 items-center justify-center rounded-sm border border-white/10 bg-white/5 text-white/40 transition-all duration-300 group-hover:border-emerald-400 group-hover:bg-emerald-500 group-hover:text-black">
           <ArrowUpRight size={16} strokeWidth={2} className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </div>
       </div>
@@ -161,11 +176,9 @@ export default function HomePage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'completed'>('all');
   const [copied, setCopied] = useState(false);
 
-  // Safe SSR/Hydration State Management
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
-  // โหลด LocalStorage เฉพาะเมื่อ Mount บน Client แล้วเท่านั้น (แก้ Hydration Error)
   useEffect(() => {
     setIsMounted(true);
     const saved = localStorage.getItem('billone_tasks');
@@ -177,8 +190,7 @@ export default function HomePage() {
         console.error(e);
       }
     }
-    
-    // Default Tasks กรณีเปิดครั้งแรกสุด
+
     setTasks([
       { id: '1', text: 'Config Promotion OCS ชุดใหม่', completed: false, priority: 'high', toolHref: '/extractor', createdAt: new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) },
       { id: '2', text: 'Mapping เบอร์โทรศัพท์ลูกค้า VIP', completed: false, priority: 'medium', toolHref: '/phonenumberreformatter', createdAt: new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) },
@@ -186,7 +198,6 @@ export default function HomePage() {
     ]);
   }, []);
 
-  // บันทึกลง LocalStorage ทุกครั้งที่ tasks มีการเปลี่ยนแปลง
   useEffect(() => {
     if (isMounted) {
       localStorage.setItem('billone_tasks', JSON.stringify(tasks));
@@ -259,7 +270,7 @@ export default function HomePage() {
     return matchesSearch;
   });
 
-  // Animated Background Canvas
+  // Animated Background Canvas — now draws a "sensor grid" node/link field instead of soft particles
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -282,7 +293,7 @@ export default function HomePage() {
         y: Math.random() * canvas.height,
         vx: (Math.random() - 0.5) * 0.5,
         vy: (Math.random() - 0.5) * 0.5,
-        size: Math.random() * 2 + 0.5,
+        size: Math.random() * 1.6 + 0.5,
         alpha: Math.random() * 0.5 + 0.1
       });
     }
@@ -297,10 +308,9 @@ export default function HomePage() {
         if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
         if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
 
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        // square "sensor node" instead of a round dot
         ctx.fillStyle = `rgba(52, 211, 153, ${p.alpha})`;
-        ctx.fill();
+        ctx.fillRect(p.x - p.size, p.y - p.size, p.size * 2, p.size * 2);
 
         for (let j = i + 1; j < particles.length; j++) {
           const p2 = particles[j];
@@ -343,7 +353,7 @@ export default function HomePage() {
           opacity: 0;
           animation: fade-up 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
-        
+
         .text-gradient {
           background: linear-gradient(135deg, #34d399 0%, #0d9488 100%);
           -webkit-background-clip: text;
@@ -351,62 +361,264 @@ export default function HomePage() {
           background-clip: text;
         }
 
-        @keyframes walk-across {
-          0% { left: 100%; transform: translateX(0); }
-          100% { left: 0%; transform: translateX(-150px); }
-        }
-        @keyframes bobbing-fast {
-          0%, 100% { bottom: 4px; }
-          50% { bottom: 20px; }
-        }
-        @keyframes bobbing-slow {
-          0%, 100% { bottom: 4px; }
-          50% { bottom: 14px; }
+        /* ── HUD scanline overlay across the whole page ── */
+        .scanlines {
+          background: repeating-linear-gradient(
+            to bottom,
+            rgba(52, 211, 153, 0.025) 0px,
+            rgba(52, 211, 153, 0.025) 1px,
+            transparent 1px,
+            transparent 3px
+          );
         }
 
-        .pet-container {
+        /* ── hex-grid backdrop ── */
+        .hex-grid {
+          background-image:
+            linear-gradient(30deg, rgba(52,211,153,0.05) 1px, transparent 1px),
+            linear-gradient(150deg, rgba(52,211,153,0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(52,211,153,0.05) 1px, transparent 1px);
+          background-size: 56px 98px;
+        }
+
+        /* ── hexagonal icon frame ── */
+        .hex-frame {
+          position: relative;
+          background: rgba(52, 211, 153, 0.08);
+          clip-path: polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0% 50%);
+          border: 1px solid rgba(52, 211, 153, 0.35);
+        }
+
+        /* ── HUD corner brackets on card hover ── */
+        .unit-card { position: relative; }
+        .corner-bracket {
           position: absolute;
-          will-change: left;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: transform 0.2s ease;
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(52, 211, 153, 0);
+          transition: all 0.4s ease;
+          z-index: 20;
         }
-        .pet-container:hover {
-          transform: scale(1.2) translateY(-10px) !important;
-          cursor: pointer;
+        .unit-card:hover .corner-bracket { border-color: rgba(52, 211, 153, 0.8); }
+        .corner-tl { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+        .corner-tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
+        .corner-bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
+        .corner-br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+
+        /* ── boot-up flicker for the hero title ── */
+        @keyframes boot-flicker {
+          0% { opacity: 0; filter: brightness(2.5); }
+          3% { opacity: 1; }
+          6% { opacity: 0.3; }
+          9% { opacity: 1; filter: brightness(1); }
+          100% { opacity: 1; filter: brightness(1); }
+        }
+        .boot-flicker { animation: boot-flicker 1.4s steps(1, end) forwards; }
+
+        /* ── blinking terminal cursor ── */
+        @keyframes blink-cursor {
+          0%, 45% { opacity: 1; }
+          50%, 100% { opacity: 0; }
+        }
+        .term-cursor::after {
+          content: '_';
+          animation: blink-cursor 1s step-end infinite;
+          color: #34d399;
         }
 
-        .pet-1 { animation: walk-across 18s linear infinite, bobbing-fast 0.35s ease-in-out infinite; animation-delay: 0s; }
-        .pet-2 { animation: walk-across 24s linear infinite, bobbing-slow 0.45s ease-in-out infinite; animation-delay: -4s; }
-        .pet-3 { animation: walk-across 15s linear infinite, bobbing-fast 0.3s ease-in-out infinite; animation-delay: -7s; }
-        .pet-4 { animation: walk-across 28s linear infinite, bobbing-slow 0.5s ease-in-out infinite; animation-delay: -12s; }
-        .pet-5 { animation: walk-across 20s linear infinite, bobbing-fast 0.4s ease-in-out infinite; animation-delay: -16s; }
+        @keyframes led-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.35; }
+        }
+        .led { animation: led-pulse 1.6s ease-in-out infinite; }
+
+        /* ── sweeping laser beams across the backdrop ── */
+        @keyframes laser-sweep-a {
+          0%   { transform: translate(-30vw, -20vh) rotate(35deg); opacity: 0; }
+          8%   { opacity: 0.55; }
+          20%  { opacity: 0; }
+          100% { transform: translate(60vw, 70vh) rotate(35deg); opacity: 0; }
+        }
+        @keyframes laser-sweep-b {
+          0%   { transform: translate(40vw, -30vh) rotate(-25deg); opacity: 0; }
+          8%   { opacity: 0.4; }
+          18%  { opacity: 0; }
+          100% { transform: translate(-40vw, 80vh) rotate(-25deg); opacity: 0; }
+        }
+        .laser-beam {
+          position: fixed;
+          top: 0; left: 0;
+          width: 2px;
+          height: 55vh;
+          pointer-events: none;
+          z-index: 1;
+        }
+        .laser-beam-1 {
+          background: linear-gradient(to bottom, rgba(52,211,153,0) 0%, rgba(52,211,153,0.9) 45%, rgba(52,211,153,0) 100%);
+          box-shadow: 0 0 12px 1px rgba(52,211,153,0.7);
+          animation: laser-sweep-a 9s ease-in infinite;
+          animation-delay: 1s;
+        }
+        .laser-beam-2 {
+          background: linear-gradient(to bottom, rgba(45,212,191,0) 0%, rgba(45,212,191,0.8) 45%, rgba(45,212,191,0) 100%);
+          box-shadow: 0 0 12px 1px rgba(45,212,191,0.6);
+          animation: laser-sweep-b 13s ease-in infinite;
+          animation-delay: 5s;
+        }
+        .laser-beam-3 {
+          background: linear-gradient(to bottom, rgba(52,211,153,0) 0%, rgba(52,211,153,0.6) 45%, rgba(52,211,153,0) 100%);
+          box-shadow: 0 0 10px 1px rgba(52,211,153,0.5);
+          animation: laser-sweep-a 16s ease-in infinite;
+          animation-delay: 9.5s;
+        }
+
+        /* ── rotating radar sweep, tucked in a corner ── */
+        @keyframes radar-rotate {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+        .radar-sweep {
+          position: fixed;
+          top: -180px;
+          right: -180px;
+          width: 480px;
+          height: 480px;
+          border-radius: 50%;
+          border: 1px solid rgba(52,211,153,0.08);
+          pointer-events: none;
+          z-index: 1;
+        }
+        .radar-sweep::before {
+          content: '';
+          position: absolute;
+          inset: 60px;
+          border-radius: 50%;
+          border: 1px solid rgba(52,211,153,0.06);
+        }
+        .radar-sweep::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          background: conic-gradient(from 0deg, rgba(52,211,153,0.22), transparent 25%);
+          animation: radar-rotate 6s linear infinite;
+        }
+
+        /* ── a small craft drifting slowly behind everything ── */
+        @keyframes ship-drift {
+          0%   { transform: translate(-10vw, 15vh) rotate(4deg); }
+          50%  { transform: translate(55vw, 6vh) rotate(-2deg); }
+          100% { transform: translate(120vw, 20vh) rotate(4deg); }
+        }
+        .bg-ship {
+          position: fixed;
+          top: 0;
+          left: 0;
+          font-size: 2rem;
+          z-index: 1;
+          pointer-events: none;
+          filter: drop-shadow(0 0 10px rgba(52,211,153,0.7)) drop-shadow(0 0 22px rgba(45,212,191,0.4));
+          opacity: 0.85;
+          animation: ship-drift 38s linear infinite;
+        }
+        .bg-ship::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          right: 100%;
+          width: 90px;
+          height: 1px;
+          background: linear-gradient(to left, rgba(52,211,153,0.6), transparent);
+        }
+
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.15; }
+          50% { opacity: 0.9; }
+        }
+        .star { position: fixed; border-radius: 50%; background: #34d399; pointer-events: none; z-index: 1; animation: twinkle 3s ease-in-out infinite; }
+
+        /* ── data-flow strip: glowing packets travelling along circuit lanes ── */
+        .data-flow { position: relative; height: 8rem; overflow: hidden; }
+        .data-lane { position: absolute; left: 0; width: 100%; height: 1px; background: rgba(52,211,153,0.12); }
+        .packet {
+          position: absolute;
+          top: 50%;
+          width: 46px;
+          height: 2px;
+          transform: translateY(-50%);
+          background: linear-gradient(to right, transparent, #34d399, transparent);
+          box-shadow: 0 0 8px 1px rgba(52,211,153,0.8);
+        }
+        @keyframes packet-move-r {
+          from { left: -10%; }
+          to   { left: 110%; }
+        }
+        @keyframes packet-move-l {
+          from { left: 110%; }
+          to   { left: -10%; }
+        }
+        .node-pulse {
+          position: absolute;
+          top: 50%;
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #34d399;
+          transform: translate(-50%, -50%);
+          box-shadow: 0 0 10px 2px rgba(52,211,153,0.7);
+          animation: led-pulse 2.2s ease-in-out infinite;
+        }
+
       `}</style>
 
       <canvas ref={canvasRef} className="pointer-events-none fixed inset-0 opacity-40 mix-blend-screen" />
+      <div className="pointer-events-none fixed inset-0 scanlines" />
+      <div className="pointer-events-none fixed inset-0 hex-grid opacity-60" />
 
       <div className="pointer-events-none fixed -left-[20%] -top-[10%] h-[50vw] w-[50vw] rounded-full bg-emerald-900/20 blur-[120px]" />
       <div className="pointer-events-none fixed -right-[10%] top-[20%] h-[40vw] w-[40vw] rounded-full bg-teal-900/10 blur-[100px]" />
       <div className="pointer-events-none fixed bottom-0 left-[20%] h-[30vw] w-[60vw] rounded-full bg-emerald-800/10 blur-[150px]" />
 
-      {/* ── FLOATING BUTTON: ทาสงาน DASHBOARD ── */}
+      {/* ── laser sweeps, radar, drifting craft & starfield ── */}
+      <div className="laser-beam laser-beam-1" />
+      <div className="laser-beam laser-beam-2" />
+      <div className="laser-beam laser-beam-3" />
+      <div className="radar-sweep" />
+      <div className="bg-ship">🛸</div>
+      {isMounted && [...Array(24)].map((_, i) => {
+        const seed = (i * 37) % 100;
+        return (
+          <span
+            key={i}
+            className="star"
+            style={{
+              top: `${(i * 53) % 100}%`,
+              left: `${(i * 29 + seed) % 100}%`,
+              width: `${1 + (i % 3)}px`,
+              height: `${1 + (i % 3)}px`,
+              animationDelay: `${(i % 7) * 0.4}s`,
+            }}
+          />
+        );
+      })}
+
+      {/* ── FLOATING BUTTON: TASK CONTROL ── */}
       <button
         onClick={() => setIsTaskOpen(true)}
-        className="fixed bottom-8 right-8 z-40 flex items-center gap-3 rounded-full border border-emerald-500/30 bg-[#0b1329]/90 px-5 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all hover:scale-105 hover:border-emerald-400 hover:bg-[#0f1b3a]"
+        className="fixed bottom-8 right-8 z-40 flex items-center gap-3 rounded-sm border border-emerald-500/30 bg-[#0b1329]/90 px-5 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all hover:scale-105 hover:border-emerald-400 hover:bg-[#0f1b3a]"
       >
         <div className="relative flex items-center justify-center">
-          <Flame size={20} className="text-amber-400 animate-pulse" />
+          <Bot size={20} className="text-emerald-400" />
           {isMounted && activeTasksCount > 0 && (
-            <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 font-mono text-[10px] font-bold text-white shadow-lg">
+            <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 font-mono text-[10px] font-bold text-white shadow-lg led">
               {activeTasksCount}
             </span>
           )}
         </div>
         <div className="text-left">
-          <div className="font-mono text-xs font-bold text-emerald-400">ทาสงาน DASHBOARD</div>
-          <div className="text-[10px] text-white/50">
-            {isMounted ? `ค้าง ${activeTasksCount} งาน (${progressPercent}%)` : 'กำลังโหลด...'}
+          <div className="font-mono text-xs font-bold tracking-widest text-emerald-400">TASK.CTRL</div>
+          <div className="text-[10px] text-white/50 font-mono">
+            {isMounted ? `PENDING ${activeTasksCount} · ${progressPercent}%` : 'BOOTING...'}
           </div>
         </div>
       </button>
@@ -414,25 +626,30 @@ export default function HomePage() {
       {/* ── TASKS SLIDE-OVER DRAWER ── */}
       {isTaskOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm transition-opacity">
-          <div className="relative flex h-full w-full max-w-lg flex-col border-l border-white/10 bg-[#090e1d] p-6 shadow-2xl">
+          <div className="relative flex h-full w-full max-w-lg flex-col border-l border-emerald-500/20 bg-[#090e1d] p-6 shadow-2xl">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div className="flex items-center gap-2">
-                <Flame className="text-amber-400" size={24} />
-                <h2 className="font-display text-xl font-bold text-white">คลังทาสงาน (Tasks)</h2>
+                <div className="hex-frame flex h-9 w-9 items-center justify-center text-emerald-400">
+                  <Bot size={18} />
+                </div>
+                <div>
+                  <h2 className="font-display text-xl font-bold text-white leading-tight">TASK.CTRL</h2>
+                  <p className="font-mono text-[10px] text-emerald-500/60 tracking-widest">งานคงค้างของหน่วยประมวลผล</p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={copySummaryToClipboard}
                   title="ก๊อปปี้สรุปงานค้างไปแปะใน LINE / Teams"
-                  className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 font-mono text-xs text-emerald-300 hover:bg-emerald-500/20 transition-all"
+                  className="flex items-center gap-1.5 rounded-sm border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 font-mono text-xs text-emerald-300 hover:bg-emerald-500/20 transition-all"
                 >
                   {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
                   <span>{copied ? 'คัดลอกแล้ว!' : 'Copy รายงาน'}</span>
                 </button>
                 <button
                   onClick={() => setIsTaskOpen(false)}
-                  className="rounded-lg p-2 text-white/50 hover:bg-white/5 hover:text-white"
+                  className="rounded-sm p-2 text-white/50 hover:bg-white/5 hover:text-white"
                 >
                   <X size={20} />
                 </button>
@@ -440,12 +657,12 @@ export default function HomePage() {
             </div>
 
             {/* Progress Bar */}
-            <div className="mt-4 rounded-xl border border-white/5 bg-white/[0.02] p-3">
+            <div className="mt-4 rounded-sm border border-white/5 bg-white/[0.02] p-3">
               <div className="flex justify-between font-mono text-xs mb-1.5">
-                <span className="text-white/60">ความคืบหน้าการเคลียร์งาน</span>
+                <span className="text-white/60 tracking-widest">CLEAR-RATE</span>
                 <span className="text-emerald-400 font-bold">{progressPercent}%</span>
               </div>
-              <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+              <div className="h-2 w-full rounded-none bg-white/10 overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-500"
                   style={{ width: `${progressPercent}%` }}
@@ -455,13 +672,13 @@ export default function HomePage() {
 
             {/* Quick Templates */}
             <div className="mt-4">
-              <div className="font-mono text-[11px] text-white/40 uppercase mb-2">⚡ สร้างงานด่วน (Quick Add)</div>
+              <div className="font-mono text-[11px] text-white/40 uppercase mb-2 tracking-widest">// สร้างงานด่วน (Quick Add)</div>
               <div className="flex flex-wrap gap-2">
                 {QUICK_TEMPLATES.map((tmpl, i) => (
                   <button
                     key={i}
                     onClick={() => addFromTemplate(tmpl)}
-                    className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/70 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-300 transition-all"
+                    className="flex items-center gap-1 rounded-sm border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/70 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-300 transition-all"
                   >
                     <Plus size={12} />
                     <span>{tmpl.text}</span>
@@ -474,21 +691,20 @@ export default function HomePage() {
             <form onSubmit={handleAddTask} className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4">
               <input
                 type="text"
-                placeholder="+ เพิ่มงานค้างใหม่..."
+                placeholder="> เพิ่มงานค้างใหม่..."
                 value={newTaskText}
                 onChange={(e) => setNewTaskText(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/30 focus:border-emerald-500 focus:outline-none"
+                className="w-full rounded-sm border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/30 focus:border-emerald-500 focus:outline-none font-mono"
               />
-              
+
               <div className="flex flex-wrap items-center justify-between gap-2">
-                {/* Priority Selector */}
                 <div className="flex gap-1.5">
                   {(['high', 'medium', 'low'] as const).map((p) => (
                     <button
                       key={p}
                       type="button"
                       onClick={() => setNewTaskPriority(p)}
-                      className={`rounded-lg px-2.5 py-1 text-[11px] font-mono capitalize transition-colors ${
+                      className={`rounded-sm px-2.5 py-1 text-[11px] font-mono capitalize transition-colors ${
                         newTaskPriority === p
                           ? p === 'high'
                             ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
@@ -503,11 +719,10 @@ export default function HomePage() {
                   ))}
                 </div>
 
-                {/* Tool Link Select */}
                 <select
                   value={selectedToolHref}
                   onChange={(e) => setSelectedToolHref(e.target.value)}
-                  className="rounded-lg border border-white/10 bg-[#0d152a] px-2.5 py-1 text-[11px] text-white/70 focus:border-emerald-500 focus:outline-none"
+                  className="rounded-sm border border-white/10 bg-[#0d152a] px-2.5 py-1 text-[11px] text-white/70 focus:border-emerald-500 focus:outline-none font-mono"
                 >
                   <option value="">-- ไม่ผูกโมดูล --</option>
                   {tools.map((t) => (
@@ -517,7 +732,7 @@ export default function HomePage() {
 
                 <button
                   type="submit"
-                  className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-black transition-hover hover:bg-emerald-400"
+                  className="flex items-center gap-1.5 rounded-sm bg-emerald-500 px-4 py-2 text-xs font-bold text-black transition-hover hover:bg-emerald-400"
                 >
                   <Plus size={16} /> เพิ่ม
                 </button>
@@ -533,7 +748,7 @@ export default function HomePage() {
                   placeholder="ค้นหางาน..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 pl-8 pr-3 py-1.5 text-xs text-white placeholder-white/30 focus:outline-none"
+                  className="w-full rounded-sm border border-white/10 bg-white/5 pl-8 pr-3 py-1.5 text-xs text-white placeholder-white/30 focus:outline-none font-mono"
                 />
               </div>
 
@@ -542,7 +757,7 @@ export default function HomePage() {
                   <button
                     key={st}
                     onClick={() => setFilterStatus(st)}
-                    className={`rounded-lg px-2.5 py-1 text-[11px] font-mono capitalize transition-all ${
+                    className={`rounded-sm px-2.5 py-1 text-[11px] font-mono capitalize transition-all ${
                       filterStatus === st
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                         : 'text-white/40 hover:text-white'
@@ -559,13 +774,13 @@ export default function HomePage() {
               {filteredTasks.length === 0 ? (
                 <div className="flex h-36 flex-col items-center justify-center text-center text-white/30">
                   <CheckSquare size={32} className="mb-2" />
-                  <p className="text-xs">ไม่พบรายการงาน</p>
+                  <p className="text-xs font-mono">NO TASKS FOUND</p>
                 </div>
               ) : (
                 filteredTasks.map((task) => (
                   <div
                     key={task.id}
-                    className={`group flex items-center justify-between rounded-2xl border p-3.5 transition-all ${
+                    className={`group flex items-center justify-between rounded-sm border p-3.5 transition-all ${
                       task.completed
                         ? 'border-white/5 bg-white/[0.01] opacity-40'
                         : 'border-white/10 bg-white/[0.03] hover:border-emerald-500/30'
@@ -576,7 +791,7 @@ export default function HomePage() {
                         type="checkbox"
                         checked={task.completed}
                         onChange={() => toggleTask(task.id)}
-                        className="mt-0.5 h-4 w-4 rounded border-white/20 bg-transparent text-emerald-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                        className="mt-0.5 h-4 w-4 rounded-sm border-white/20 bg-transparent text-emerald-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
                       />
                       <div className="flex flex-col overflow-hidden">
                         <span className={`text-xs font-medium ${task.completed ? 'line-through text-white/40' : 'text-white/90'}`}>
@@ -599,7 +814,7 @@ export default function HomePage() {
 
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[9px] font-mono font-bold uppercase ${
+                        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-mono font-bold uppercase ${
                           task.priority === 'high'
                             ? 'bg-rose-500/20 text-rose-400'
                             : task.priority === 'medium'
@@ -607,6 +822,9 @@ export default function HomePage() {
                             : 'bg-emerald-500/20 text-emerald-400'
                         }`}
                       >
+                        <span className={`h-1.5 w-1.5 rounded-full led ${task.completed ? '' : ''} ${
+                          task.priority === 'high' ? 'bg-rose-400' : task.priority === 'medium' ? 'bg-amber-400' : 'bg-emerald-400'
+                        }`} />
                         {task.priority}
                       </span>
                       <button
@@ -633,24 +851,29 @@ export default function HomePage() {
       <div className="relative z-10 mx-auto max-w-7xl px-6 py-20 lg:px-8">
         {/* ── HEADER ── */}
         <header className="mb-24 flex flex-col items-center text-center">
-          <div className="hero-element mb-8 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-4 py-2 backdrop-blur-sm" style={{ animationDelay: '0ms' }}>
+          <div className="hero-element mb-8 inline-flex items-center gap-2 rounded-sm border border-emerald-500/20 bg-emerald-500/5 px-4 py-2 backdrop-blur-sm font-mono" style={{ animationDelay: '0ms' }}>
             <span className="relative flex h-2.5 w-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
             </span>
-            <span className="font-mono text-xs font-bold tracking-widest text-emerald-400">BILLONE INTERNAL</span>
+            <span className="text-xs font-bold tracking-widest text-emerald-400">[ SYSTEM.ONLINE ] BILLONE INTERNAL</span>
           </div>
 
-          <h1 className="hero-element font-display mb-6 text-5xl font-black leading-tight tracking-tight text-white md:text-7xl lg:text-[5.5rem]" style={{ animationDelay: '100ms' }}>
+          <div className="hero-element mb-3 flex items-center gap-2 font-mono text-[11px] tracking-[0.3em] text-emerald-500/50 term-cursor" style={{ animationDelay: '60ms' }}>
+            <Cpu size={12} />
+            <span>INITIALIZING ARM-01</span>
+          </div>
+
+          <h1 className="hero-element boot-flicker font-display mb-6 text-5xl font-black leading-tight tracking-tight text-white md:text-7xl lg:text-[5.5rem]" style={{ animationDelay: '150ms' }}>
             Next-Gen <br className="md:hidden" />
             <span className="text-gradient">OCS Config</span>
           </h1>
 
-          <p className="hero-element max-w-2xl text-lg font-medium text-white/50 sm:text-xl" style={{ animationDelay: '200ms' }}>
+          <p className="hero-element max-w-2xl text-lg font-medium text-white/50 sm:text-xl" style={{ animationDelay: '250ms' }}>
             A unified intelligence hub for promotion data management, configuration, and analysis. Designed for speed, precision, and efficiency.
           </p>
 
-          <div className="hero-element mt-16 flex flex-wrap justify-center gap-8 md:gap-16" style={{ animationDelay: '300ms' }}>
+          <div className="hero-element mt-16 flex flex-wrap justify-center gap-8 md:gap-16" style={{ animationDelay: '350ms' }}>
             {[
               { val: tools.length, label: 'Active Modules' },
               { val: isMounted ? `${activeTasksCount} งาน` : '...', label: 'งานค้าง (Pending)' },
@@ -666,10 +889,11 @@ export default function HomePage() {
 
         {/* ── MODULES GRID ── */}
         <section className="relative">
-          <div className="hero-element mb-12 flex items-center justify-between" style={{ animationDelay: '400ms' }}>
+          <div className="hero-element mb-12 flex items-center justify-between" style={{ animationDelay: '450ms' }}>
             <div className="flex items-center gap-4">
-              <div className="h-8 w-1 rounded-full bg-emerald-500"></div>
+              <div className="h-8 w-1 bg-emerald-500"></div>
               <h2 className="font-display text-2xl font-bold text-white">System Modules</h2>
+              <span className="font-mono text-[10px] tracking-widest text-emerald-500/50 border border-emerald-500/20 rounded-sm px-2 py-1">{tools.length} ONLINE</span>
             </div>
             <div className="h-px flex-1 mx-6 bg-gradient-to-r from-emerald-500/20 to-transparent"></div>
           </div>
@@ -683,21 +907,35 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ── CUTENESS ZONE ── */}
-        <div className="hero-element relative mt-32 h-32 w-full overflow-hidden rounded-t-3xl border-t border-emerald-500/10 bg-gradient-to-b from-white/[0.02] to-transparent" style={{ animationDelay: '800ms' }}>
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:linear-gradient(to_bottom,white,transparent)]"></div>
-
-          <div className="pet-container pet-1 text-6xl drop-shadow-[0_0_15px_rgba(52,211,153,0.6)]">🐈‍⬛</div>
-          <div className="pet-container pet-2 text-5xl drop-shadow-[0_0_15px_rgba(45,212,191,0.6)]">🦖</div>
-          <div className="pet-container pet-3 text-5xl drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]">🐕</div>
-          <div className="pet-container pet-4 text-5xl drop-shadow-[0_0_15px_rgba(244,63,94,0.5)]">🐇</div>
-          <div className="pet-container pet-5 text-5xl drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]">🦊</div>
+        {/* ── DATA FLOW STRIP: live packets travelling across the system bus ── */}
+        <div className="hero-element data-flow mt-32 w-full [mask-image:linear-gradient(to_bottom,white,transparent)]" style={{ animationDelay: '800ms' }}>
+          {[18, 40, 62, 84].map((topPct, laneIdx) => (
+            <div key={laneIdx} className="data-lane" style={{ top: `${topPct}%` }}>
+              <span className="node-pulse" style={{ left: '8%', animationDelay: `${laneIdx * 0.3}s` }} />
+              <span className="node-pulse" style={{ left: '50%', animationDelay: `${laneIdx * 0.5 + 0.6}s` }} />
+              <span className="node-pulse" style={{ left: '92%', animationDelay: `${laneIdx * 0.4 + 1.1}s` }} />
+              <span
+                className="packet"
+                style={{
+                  animation: `${laneIdx % 2 === 0 ? 'packet-move-r' : 'packet-move-l'} ${4.5 + laneIdx * 1.4}s linear infinite`,
+                  animationDelay: `${laneIdx * 0.8}s`,
+                }}
+              />
+              <span
+                className="packet"
+                style={{
+                  animation: `${laneIdx % 2 === 0 ? 'packet-move-r' : 'packet-move-l'} ${5.5 + laneIdx * 1.1}s linear infinite`,
+                  animationDelay: `${laneIdx * 0.8 + 2.5}s`,
+                }}
+              />
+            </div>
+          ))}
         </div>
 
         {/* ── FOOTER ── */}
         <footer className="hero-element mt-12 flex flex-col items-center justify-between gap-6 border-t border-emerald-500/10 pt-12 md:flex-row" style={{ animationDelay: '900ms' }}>
-          <div className="flex items-center gap-3 rounded-full border border-white/5 bg-white/[0.02] px-4 py-2 backdrop-blur-md">
-            <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+          <div className="flex items-center gap-3 rounded-sm border border-white/5 bg-white/[0.02] px-4 py-2 backdrop-blur-md">
+            <div className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] led" />
             <span className="font-mono text-xs font-semibold tracking-wider text-white/60">ALL SYSTEMS NOMINAL</span>
           </div>
 
@@ -706,8 +944,11 @@ export default function HomePage() {
           </p>
 
           <div className="flex gap-4">
-            <div className="h-8 w-8 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-white/30 hover:bg-emerald-500/20 hover:text-emerald-400 transition-colors">
-              <Sparkles size={14} />
+            <div className="h-8 w-8 rounded-sm border border-white/10 bg-white/5 flex items-center justify-center text-white/30 hover:bg-emerald-500/20 hover:text-emerald-400 transition-colors">
+              <Radar size={14} />
+            </div>
+            <div className="h-8 w-8 rounded-sm border border-white/10 bg-white/5 flex items-center justify-center text-white/30 hover:bg-emerald-500/20 hover:text-emerald-400 transition-colors">
+              <Wifi size={14} />
             </div>
           </div>
         </footer>
