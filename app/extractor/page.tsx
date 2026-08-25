@@ -5,7 +5,8 @@ import * as XLSX from 'xlsx';
 import {
     FileText, Download, Trash2, Settings,
     AlertTriangle, CheckCircle, ArrowLeft,
-    Database, Search, Terminal, FileSpreadsheet, Filter, Check
+    Database, Search, Terminal, FileSpreadsheet,
+    History, UploadCloud, Clock, RefreshCw, X
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import Link from 'next/link';
@@ -15,7 +16,12 @@ import {
     EXPORT_COLUMNS,
     ColKey,
     ExtractedData,
-    masterExtractor
+    masterExtractor,
+    validateDataSet,
+    saveHistoryBatch,
+    getHistoryBatches,
+    clearHistoryBatches,
+    HistoryItem
 } from './utils';
 
 export default function PromotionExtractor() {
@@ -25,12 +31,21 @@ export default function PromotionExtractor() {
     const [editCell, setEditCell] = useState<{ row: number; col: ColKey } | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterTab, setFilterTab] = useState<'all' | 'review' | 'ok'>('all');
+    const [isDragging, setIsDragging] = useState(false);
+    const [historyModalOpen, setHistoryModalOpen] = useState(false);
+    const [historyList, setHistoryList] = useState<HistoryItem[]>([]);
 
     const editRef = useRef<HTMLInputElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const reviewCount = useMemo(() => dataList.filter(d => d['⚠️ ตรวจสอบ?'] === 'ควรตรวจสอบ').length, [dataList]);
     const isProcessed = dataList.length > 0;
+
+    // Load history on mount
+    useEffect(() => {
+        setHistoryList(getHistoryBatches());
+    }, []);
 
     // Filtered data list based on search term & filter tab
     const filteredDataList = useMemo(() => {
@@ -72,26 +87,75 @@ export default function PromotionExtractor() {
         draw(); return () => window.removeEventListener('resize', resize);
     }, []);
 
-    const handleProcess = useCallback(() => {
-        setStatus('Processing...');
-        const raw = rawInput.trim();
-        if (!raw) {
+    // Core extraction processor
+    const processRawContent = useCallback((raw: string) => {
+        const trimmed = raw.trim();
+        if (!trimmed) {
             Swal.fire({ icon: 'warning', title: 'Data Required', text: 'กรุณาวางข้อมูลดิบก่อนประมวลผล', confirmButtonColor: '#0a0c0f' });
             setStatus('Awaiting input'); return;
         }
 
-        // Improved chunking regex to handle various promotion header formats
-        const chunks = raw.split(/(?=\d{8}:\s*New|โปรโมชั่น\s*\d{8}\s*:|โปรโมชั่น\s*\d+\s*:)/).map(c => c.trim()).filter(Boolean);
-        const result = chunks.map(chunk => masterExtractor(chunk));
+        setStatus('Processing...');
+        const chunks = trimmed.split(/(?=\d{8}:\s*New|โปรโมชั่น\s*\d{8}\s*:|โปรโมชั่น\s*\d+\s*:)/).map(c => c.trim()).filter(Boolean);
+        const extracted = chunks.map(chunk => masterExtractor(chunk));
+        const validated = validateDataSet(extracted);
 
-        setDataList(result);
-        const rc = result.filter(d => d['⚠️ ตรวจสอบ?'] === 'ควรตรวจสอบ').length;
+        setDataList(validated);
+        const updatedHistory = saveHistoryBatch(validated);
+        setHistoryList(updatedHistory);
 
-        if (rc > 0) Swal.fire({ icon: 'info', title: 'Process Complete', text: `พบ ${rc} รายการที่ต้องตรวจสอบ`, confirmButtonColor: '#0a0c0f' });
-        else Swal.fire({ icon: 'success', title: 'Success', text: `สกัดข้อมูลสำเร็จ ${result.length} รายการ`, timer: 2000, showConfirmButton: false });
+        const rc = validated.filter(d => d['⚠️ ตรวจสอบ?'] === 'ควรตรวจสอบ').length;
 
-        setStatus(`✓ Processed ${result.length} records`);
-    }, [rawInput]);
+        if (rc > 0) {
+            Swal.fire({ icon: 'info', title: 'Process Complete', text: `พบ ${rc} รายการที่ต้องตรวจสอบ (มีรหัสซ้ำหรือข้อมูลไม่ครบ)`, confirmButtonColor: '#0a0c0f' });
+        } else {
+            Swal.fire({ icon: 'success', title: 'Success', text: `สกัดข้อมูลสำเร็จ ${validated.length} รายการ`, timer: 2000, showConfirmButton: false });
+        }
+        setStatus(`✓ Processed ${validated.length} records`);
+    }, []);
+
+    const handleProcess = useCallback(() => {
+        processRawContent(rawInput);
+    }, [rawInput, processRawContent]);
+
+    // Handle File Drop / Select
+    const handleFileUpload = useCallback((file: File) => {
+        if (!file) return;
+        setStatus(`Reading file ${file.name}...`);
+        const reader = new FileReader();
+
+        if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const csvText = XLSX.utils.sheet_to_csv(firstSheet);
+                    setRawInput(csvText);
+                    processRawContent(csvText);
+                } catch {
+                    Swal.fire({ icon: 'error', title: 'Read Failed', text: 'ไม่สามารถอ่านไฟล์ Excel ได้', confirmButtonColor: '#0a0c0f' });
+                    setStatus('Awaiting input');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            reader.onload = (e) => {
+                const text = e.target?.result as string;
+                setRawInput(text);
+                processRawContent(text);
+            };
+            reader.readAsText(file);
+        }
+    }, [processRawContent]);
+
+    const handleDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleFileUpload(e.dataTransfer.files[0]);
+        }
+    }, [handleFileUpload]);
 
     const handleClear = useCallback(() => {
         setRawInput('');
@@ -103,16 +167,17 @@ export default function PromotionExtractor() {
     }, []);
 
     const handleDeleteRow = useCallback((originalIdx: number) => {
-        setDataList(prev => prev.filter((_, i) => i !== originalIdx));
+        setDataList(prev => {
+            const next = prev.filter((_, i) => i !== originalIdx);
+            return validateDataSet(next);
+        });
     }, []);
 
     const handleCellEdit = useCallback((originalIdx: number, col: ColKey, value: string) => {
         setDataList(prev => {
             const next = [...prev];
             next[originalIdx] = { ...next[originalIdx], [col]: value };
-            const missing = (['Legacy ID', 'Offering Name'] as ColKey[]).filter(f => !next[originalIdx][f]?.trim());
-            next[originalIdx]['⚠️ ตรวจสอบ?'] = missing.length > 0 ? 'ควรตรวจสอบ' : '';
-            return next;
+            return validateDataSet(next);
         });
     }, []);
 
@@ -143,7 +208,7 @@ export default function PromotionExtractor() {
             const legacyColIdx = EXPORT_COLUMNS.indexOf('Legacy ID');
             if (legacyColIdx >= 0) {
                 const cellRef = XLSX.utils.encode_cell({ r: R, c: legacyColIdx });
-                if (ws[cellRef]) ws[cellRef].t = 's'; // Force string so leading 0 isn't stripped
+                if (ws[cellRef]) ws[cellRef].t = 's';
             }
 
             const feeColIdx = EXPORT_COLUMNS.indexOf('Rental Fee without tax');
@@ -210,18 +275,27 @@ export default function PromotionExtractor() {
                             <h1 className="font-display text-4xl font-extrabold leading-tight tracking-tight text-white">
                                 Promotion Data{' '}
                                 <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent">
-                                    Extractor
+                                    Extractor Pro
                                 </span>
                             </h1>
                             <p className="mt-2 font-mono-custom text-[11px] text-white/30">
-                                สกัดข้อมูลโปรโมชั่นจากข้อความดิบ · export CSV / XLSX สำหรับ config OCS
+                                สกัดข้อมูลโปรโมชั่นจากข้อความ/ไฟล์ดิบ · Drag & Drop Upload · ตรวจจับรหัสซ้ำอัตโนมัติ
                             </p>
                         </div>
 
-                        {/* Status pill */}
-                        <div className="mt-1 flex shrink-0 items-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 backdrop-blur-sm">
-                            <div className={`pulse-dot h-2 w-2 rounded-full ${status.startsWith('✓') ? 'bg-emerald-400' : status === 'Processing...' ? 'bg-amber-400' : 'bg-white/20'}`} />
-                            <span className="font-mono-custom text-[11px] text-white/50">{status}</span>
+                        {/* Status pill & History trigger */}
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setHistoryModalOpen(true)}
+                                className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm transition-all hover:bg-white/10 text-white/60 font-mono-custom text-[11px]"
+                            >
+                                <History size={14} className="text-emerald-400" />
+                                HISTORY ({historyList.length})
+                            </button>
+                            <div className="flex shrink-0 items-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 backdrop-blur-sm">
+                                <div className={`pulse-dot h-2 w-2 rounded-full ${status.startsWith('✓') ? 'bg-emerald-400' : status === 'Processing...' ? 'bg-amber-400' : 'bg-white/20'}`} />
+                                <span className="font-mono-custom text-[11px] text-white/50">{status}</span>
+                            </div>
                         </div>
                     </div>
                 </header>
@@ -229,27 +303,53 @@ export default function PromotionExtractor() {
                 {/* ── MAIN GRID ── */}
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
 
-                    {/* LEFT — Input */}
+                    {/* LEFT — Input & Drag Drop */}
                     <div className="fade-up lg:col-span-4 space-y-4" style={{ animationDelay: '80ms' }}>
                         <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
                             <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
                                 <div className="flex items-center gap-2.5">
                                     <Database size={15} className="text-emerald-400" />
-                                    <span className="font-mono-custom text-[11px] tracking-[0.2em] text-white/50">SOURCE DATA</span>
+                                    <span className="font-mono-custom text-[11px] tracking-[0.2em] text-white/50">SOURCE DATA & UPLOAD</span>
                                 </div>
                                 <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 font-mono-custom text-[10px] text-white/25">
-                                    Auto-detect
+                                    TXT / CSV / XLSX
                                 </span>
                             </div>
-                            <div className="p-5">
+
+                            <div className="p-5 space-y-3">
+                                {/* Drag and Drop Box */}
+                                <div
+                                    onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+                                    onDragLeave={() => setIsDragging(false)}
+                                    onDrop={handleDrop}
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className={`group relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-all ${isDragging ? 'border-emerald-400 bg-emerald-500/10' : 'border-white/10 bg-white/[0.02] hover:border-emerald-500/30 hover:bg-white/[0.04]'}`}
+                                >
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept=".txt,.csv,.xlsx,.xls"
+                                        className="hidden"
+                                        onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+                                    />
+                                    <UploadCloud size={24} className={`mb-2 transition-transform group-hover:scale-110 ${isDragging ? 'text-emerald-400' : 'text-white/30'}`} />
+                                    <p className="font-mono-custom text-xs font-bold text-white/60">
+                                        ลากไฟล์มาวางที่นี่ หรือ <span className="text-emerald-400">คลิกเพื่ออัปโหลด</span>
+                                    </p>
+                                    <p className="mt-1 font-mono-custom text-[10px] text-white/20">
+                                        รองรับไฟล์ .txt, .csv, .xlsx
+                                    </p>
+                                </div>
+
                                 <textarea
-                                    rows={18}
-                                    placeholder="วางข้อมูลโปรโมชั่นที่นี่..."
+                                    rows={14}
+                                    placeholder="หรือวางข้อความโปรโมชั่นดิบที่นี่..."
                                     value={rawInput}
                                     onChange={e => setRawInput(e.target.value)}
                                     className="w-full rounded-xl border border-white/[0.08] bg-[#0d0f12] p-4 font-mono-custom text-xs text-white/60 placeholder:text-white/20 outline-none focus:border-emerald-500/30 focus:bg-[#0f1114] transition-all resize-none"
                                 />
-                                <div className="mt-4 flex flex-col gap-2.5">
+
+                                <div className="flex flex-col gap-2.5">
                                     <button
                                         onClick={handleProcess}
                                         className="relative w-full overflow-hidden rounded-xl border border-emerald-500/20 bg-emerald-500/10 py-3.5 font-mono-custom text-xs font-bold tracking-[0.2em] text-emerald-400 transition-all hover:bg-emerald-500/20 hover:border-emerald-500/40 flex items-center justify-center gap-2"
@@ -274,7 +374,7 @@ export default function PromotionExtractor() {
                                     <AlertTriangle size={18} />
                                 </div>
                                 <div>
-                                    <p className="font-mono-custom text-[10px] tracking-[0.2em] text-amber-400/60">NEEDS REVIEW</p>
+                                    <p className="font-mono-custom text-[10px] tracking-[0.2em] text-amber-400/60">NEEDS REVIEW / DUPLICATES DETECTED</p>
                                     <p className="font-display text-2xl font-extrabold text-amber-400 leading-none mt-0.5">
                                         {reviewCount} <span className="text-sm font-normal text-amber-400/60">รายการ</span>
                                     </p>
@@ -284,7 +384,7 @@ export default function PromotionExtractor() {
 
                         {/* Legend cards */}
                         {[
-                            { icon: AlertTriangle, color: 'text-amber-400', border: 'border-amber-500/15', bg: 'bg-amber-500/5', title: 'Validation', desc: 'ตรวจสอบหาก Legacy ID หรือ Offering Name หาย' },
+                            { icon: AlertTriangle, color: 'text-amber-400', border: 'border-amber-500/15', bg: 'bg-amber-500/5', title: 'Duplicate & Integrity Check', desc: 'ตรวจจับ Legacy ID ซ้ำ และฟิลด์สำคัญหลุด' },
                             { icon: CheckCircle, color: 'text-emerald-400', border: 'border-emerald-500/15', bg: 'bg-emerald-500/5', title: 'Smart Format', desc: 'Rental Fee 6 ตำแหน่ง · วันที่ไทย → DD/MM/YYYY' },
                             { icon: Search, color: 'text-sky-400', border: 'border-sky-500/15', bg: 'bg-sky-500/5', title: 'Editable', desc: 'ดับเบิ้ลคลิกเซลล์เพื่อแก้ไขข้อมูลก่อน export' },
                         ].map((item, i) => (
@@ -301,12 +401,12 @@ export default function PromotionExtractor() {
                     {/* RIGHT — Results */}
                     <div className="fade-up lg:col-span-8" style={{ animationDelay: '140ms' }}>
                         {!isProcessed ? (
-                            <div className="flex h-[680px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.06] text-center">
+                            <div className="flex h-[680px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.06] text-center p-6">
                                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/20">
                                     <Terminal size={24} strokeWidth={1.5} />
                                 </div>
                                 <p className="font-display text-lg font-bold text-white/25">No Data Processed</p>
-                                <p className="mt-1 font-mono-custom text-[11px] text-white/15">วางข้อมูลแล้วกด Process Intelligence</p>
+                                <p className="mt-1 font-mono-custom text-[11px] text-white/15">วางข้อความ หรือ ลากไฟล์ลงในช่องทางซ้ายแล้วกด Process Intelligence</p>
                             </div>
                         ) : (
                             <div className="flex flex-col overflow-hidden rounded-2xl border border-white/10 h-[680px]">
@@ -396,7 +496,7 @@ export default function PromotionExtractor() {
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                filteredDataList.map(({ item, originalIndex }, idx) => (
+                                                filteredDataList.map(({ item, originalIndex }) => (
                                                     <tr
                                                         key={originalIndex}
                                                         className={`group border-b border-white/[0.04] transition-colors ${item['⚠️ ตรวจสอบ?'] === 'ควรตรวจสอบ' ? 'bg-amber-500/[0.04] hover:bg-amber-500/[0.07]' : 'hover:bg-white/[0.025]'}`}
@@ -417,7 +517,7 @@ export default function PromotionExtractor() {
                                                                             setTimeout(() => editRef.current?.focus(), 50);
                                                                         }
                                                                     }}
-                                                                    title={col !== '⚠️ ตรวจสอบ?' ? 'ดับเบิ้ลคลิกเพื่อแก้ไข' : undefined}
+                                                                    title={needsReview && item._validationDetails ? item._validationDetails : (col !== '⚠️ ตรวจสอบ?' ? 'ดับเบิ้ลคลิกเพื่อแก้ไข' : undefined)}
                                                                 >
                                                                     {isEditing ? (
                                                                         <input
@@ -459,7 +559,7 @@ export default function PromotionExtractor() {
                                     </div>
                                     {reviewCount > 0 && (
                                         <span className="flex items-center gap-1.5 font-mono-custom text-[10px] tracking-widest text-amber-400/70">
-                                            <AlertTriangle size={10} /> NEEDS REVIEW: {reviewCount}
+                                            <AlertTriangle size={10} /> NEEDS REVIEW / DUPLICATES: {reviewCount}
                                         </span>
                                     )}
                                 </div>
@@ -467,6 +567,80 @@ export default function PromotionExtractor() {
                         )}
                     </div>
                 </div>
+
+                {/* ── HISTORY MODAL ── */}
+                {historyModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+                        <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0d0f12] p-6 shadow-2xl space-y-6">
+                            <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
+                                <div className="flex items-center gap-2.5">
+                                    <History className="text-emerald-400" size={18} />
+                                    <h3 className="font-display text-lg font-bold text-white">Extraction History</h3>
+                                </div>
+                                <button
+                                    onClick={() => setHistoryModalOpen(false)}
+                                    className="rounded-lg p-1 text-white/30 hover:text-white"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+
+                            <div className="max-h-[360px] overflow-y-auto space-y-3 pr-1">
+                                {historyList.length === 0 ? (
+                                    <p className="py-8 text-center font-mono-custom text-xs text-white/30">
+                                        ยังไม่มีประวัติการสกัดข้อมูลในระบบ
+                                    </p>
+                                ) : (
+                                    historyList.map(item => (
+                                        <div
+                                            key={item.id}
+                                            className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4 hover:border-emerald-500/30 transition-all cursor-pointer group"
+                                            onClick={() => {
+                                                setDataList(item.data);
+                                                setStatus(`✓ Restored ${item.recordCount} records from ${item.timestamp}`);
+                                                setHistoryModalOpen(false);
+                                            }}
+                                        >
+                                            <div>
+                                                <p className="font-mono-custom text-xs font-bold text-white/80 group-hover:text-emerald-400 transition-colors">
+                                                    {item.previewTitle}
+                                                </p>
+                                                <div className="flex items-center gap-3 mt-1 font-mono-custom text-[10px] text-white/30">
+                                                    <span className="flex items-center gap-1"><Clock size={10} /> {item.timestamp}</span>
+                                                    <span>• {item.recordCount} รายการ</span>
+                                                    {item.reviewCount > 0 && <span className="text-amber-400/80">• ต้องตรวจ {item.reviewCount}</span>}
+                                                </div>
+                                            </div>
+                                            <button className="flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono-custom text-[10px] text-emerald-400 group-hover:bg-emerald-500/20">
+                                                <RefreshCw size={10} /> RESTORE
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            <div className="flex items-center justify-between border-t border-white/[0.06] pt-4">
+                                {historyList.length > 0 && (
+                                    <button
+                                        onClick={() => {
+                                            clearHistoryBatches();
+                                            setHistoryList([]);
+                                        }}
+                                        className="font-mono-custom text-xs text-red-400/60 hover:text-red-400 transition-colors"
+                                    >
+                                        Clear History
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setHistoryModalOpen(false)}
+                                    className="ml-auto rounded-xl border border-white/10 bg-white/5 px-4 py-2 font-mono-custom text-xs text-white/60 hover:text-white"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── FOOTER ── */}
                 <footer className="mt-20 border-t border-white/[0.05] pt-8 text-center">

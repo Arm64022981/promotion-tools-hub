@@ -13,7 +13,7 @@ export const OUTPUT_COLUMNS = [
 ] as const;
 
 export type ColKey = typeof OUTPUT_COLUMNS[number];
-export type ExtractedData = Partial<Record<ColKey, string>>;
+export type ExtractedData = Partial<Record<ColKey, string>> & { _validationDetails?: string };
 
 export const EXPORT_COLUMNS = OUTPUT_COLUMNS.filter(
     col => col !== '⚠️ ตรวจสอบ?' && col !== 'Change log'
@@ -168,7 +168,7 @@ export function extractKeyValueData(textChunk: string): ExtractedData {
     details['Offer ID'] = findFn(textChunk, /Offer\s*ID\s*:\s*([^\r\n\s]*)/m);
     details['SCG config existing'] = findFn(textChunk, /SCG\s*config\s*existing\s*:\s*([^\r\n]*)/m);
     details['Bonus'] = findFn(textChunk, /Bonus\s*:\s*([YN])/m);
-    details['Independent Sales'] = findFn(textChunk, /Independent Sales\s*:\s*([YN])/m);
+    details['Independent Sales'] = findFn(textChunk, /Independent Sales\s*:\s*([^\r\n]*)/m);
 
     const speedMatch = findFn(textChunk, /โปรโมชั่น.*?เน็ต.*?\s([\d.]+Mbps)/m) || findFn(textChunk, /(\d+\s*Mbps)/m);
     if (speedMatch) {
@@ -195,7 +195,7 @@ export function extractTabSeparatedData(textChunk: string): ExtractedData {
         else if (field === 'Prorate' || field === 'Not Prorate') details['Prorate RC & FU'] = field;
         else if (/suspend/i.test(field) && !details['RC failed need Suspend ?']) details['RC failed need Suspend ?'] = 'Suspend';
         else if (ACTION_AFTER_RETRY_PATTERNS.includes(field) && !details['Action after max retry']) details['Action after max retry'] = field;
-        else if (/^\d+(\.\d+)?$/.test(field) && !details['Rental Fee without tax']) { const fee = parseFloat(field); if (fee >= 0) details['Rental Fee without tax'] = fee.toFixed(6); }
+        else if (/^\d+(\.\d+)?$/.test(field) && field !== details['Legacy ID'] && !details['Rental Fee without tax']) { const fee = parseFloat(field); if (fee >= 0) details['Rental Fee without tax'] = fee.toFixed(6); }
         else if (/^(\dG\/?)+$/.test(field)) details['Type'] = field;
         else if (/Bytes/.test(field)) { details['Free unit type Legacy'] = 'DATA VOLUME'; details['Free unit type OCS'] = 'DATA VOLUME'; details['Free unit value'] = field; }
         else if (/Baht \//.test(field)) { if (/Voice/i.test(field)) details['Voice Tariff'] = field; else if (/SMS/i.test(field)) details['SMS Tariff'] = field; else if (/MMS/i.test(field)) details['MMS Tariff'] = field; else details['GPRS Tariff'] = field; }
@@ -265,11 +265,92 @@ export function masterExtractor(textChunk: string): ExtractedData {
         if (!isNaN(f)) details['Rental Fee without tax'] = f.toFixed(6);
     }
 
-    const missing: ColKey[] = [];
-    if (!details['Legacy ID']?.trim()) missing.push('Legacy ID');
-    if (!details['Offering Name']?.trim()) missing.push('Offering Name');
-    if (details['Deploy Date']?.includes('??') || details['Sale Start Date']?.includes('??')) missing.push('Deploy Date');
-
-    details['⚠️ ตรวจสอบ?'] = missing.length > 0 ? 'ควรตรวจสอบ' : '';
     return details;
+}
+
+// Global Validation Engine: Checks for missing fields & duplicate Legacy IDs across dataset
+export function validateDataSet(dataset: ExtractedData[]): ExtractedData[] {
+    const legacyIdCounts = new Map<string, number>();
+
+    dataset.forEach(item => {
+        const id = (item['Legacy ID'] || '').trim();
+        if (id) {
+            legacyIdCounts.set(id, (legacyIdCounts.get(id) || 0) + 1);
+        }
+    });
+
+    return dataset.map(item => {
+        const missing: string[] = [];
+        const id = (item['Legacy ID'] || '').trim();
+
+        if (!id) missing.push('Missing Legacy ID');
+        if (!(item['Offering Name'] || '').trim()) missing.push('Missing Offering Name');
+        if (item['Deploy Date']?.includes('??') || item['Sale Start Date']?.includes('??')) missing.push('Invalid Date');
+
+        if (id && (legacyIdCounts.get(id) || 0) > 1) {
+            missing.push(`Duplicate Legacy ID (${id})`);
+        }
+
+        const isProblem = missing.length > 0;
+        return {
+            ...item,
+            '⚠️ ตรวจสอบ?': isProblem ? 'ควรตรวจสอบ' : '',
+            _validationDetails: isProblem ? missing.join(' · ') : undefined
+        };
+    });
+}
+
+// LocalStorage History Helpers
+const HISTORY_STORAGE_KEY = 'billone_promo_extractor_history_v1';
+
+export interface HistoryItem {
+    id: string;
+    timestamp: string;
+    recordCount: number;
+    reviewCount: number;
+    previewTitle: string;
+    data: ExtractedData[];
+}
+
+export function saveHistoryBatch(data: ExtractedData[]): HistoryItem[] {
+    if (typeof window === 'undefined' || !data.length) return [];
+    try {
+        const existing = getHistoryBatches();
+        const firstItem = data[0];
+        const previewTitle = firstItem['Offering Name'] || firstItem['Legacy ID'] || 'Batch Promotion Set';
+
+        const newItem: HistoryItem = {
+            id: Date.now().toString(),
+            timestamp: new Date().toLocaleString('th-TH'),
+            recordCount: data.length,
+            reviewCount: data.filter(d => d['⚠️ ตรวจสอบ?'] === 'ควรตรวจสอบ').length,
+            previewTitle,
+            data
+        };
+
+        const updated = [newItem, ...existing].slice(0, 10); // Keep last 10 batches
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated));
+        return updated;
+    } catch {
+        return [];
+    }
+}
+
+export function getHistoryBatches(): HistoryItem[] {
+    if (typeof window === 'undefined') return [];
+    try {
+        const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch {
+        return [];
+    }
+}
+
+export function clearHistoryBatches(): void {
+    if (typeof window === 'undefined') return;
+    try {
+        localStorage.removeItem(HISTORY_STORAGE_KEY);
+    } catch {
+        // ignore
+    }
 }
